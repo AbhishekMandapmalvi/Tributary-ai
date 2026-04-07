@@ -6,6 +6,7 @@ dist/
 wheels/
 *.egg-info
 *.egg
+async_learning/
 
 # Virtual environments
 .venv
