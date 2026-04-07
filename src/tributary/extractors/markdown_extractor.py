@@ -2,7 +2,7 @@ from tributary.extractors.base import BaseExtractor
 from tributary.extractors.models import ExtractionResult
 from markdown_it import MarkdownIt
 from mdit_plain.renderer import RendererPlain
-from time import time
+from time import perf_counter
 
 
 class MarkdownExtractor(BaseExtractor):
@@ -10,10 +10,10 @@ class MarkdownExtractor(BaseExtractor):
         self.md = MarkdownIt(renderer_cls=RendererPlain)
     
     async def extract(self, bytes_data: bytes, source_name: str) -> ExtractionResult:
-        start_time = time()
-        markdown_text = self._decode_bytes(bytes_data)
+        start_time = perf_counter()
+        markdown_text = self._decode_bytes(bytes_data, source_name)
         text = self.md.render(markdown_text)
-        extraction_time_ms = (time() - start_time) * 1000
+        extraction_time_ms = (perf_counter() - start_time) * 1000
         
         return ExtractionResult(
             text=text,

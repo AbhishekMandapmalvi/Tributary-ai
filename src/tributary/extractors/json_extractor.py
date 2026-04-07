@@ -1,13 +1,13 @@
 from tributary.extractors.base import BaseExtractor
 from tributary.extractors.models import ExtractionResult
-from time import time
+from time import perf_counter
 import json
 
 
 class JSONExtractor(BaseExtractor):
     async def extract(self, bytes_data: bytes, source_name: str) -> ExtractionResult:
-        start_time = time()
-        raw_text = self._decode_bytes(bytes_data)
+        start_time = perf_counter()
+        raw_text = self._decode_bytes(bytes_data, source_name)
         try:
             data = json.loads(raw_text)
         except json.JSONDecodeError as e:
@@ -15,7 +15,7 @@ class JSONExtractor(BaseExtractor):
         lines = []
         self._flatten(data, "", lines)
         text = "\n".join(lines)
-        extraction_time_ms = (time() - start_time) * 1000
+        extraction_time_ms = (perf_counter() - start_time) * 1000
 
         return ExtractionResult(
             text=text,

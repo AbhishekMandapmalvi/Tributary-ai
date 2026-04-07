@@ -1,9 +1,10 @@
 from tributary.extractors.base import BaseExtractor
 from tributary.extractors.csv_extractor import CSVExtractor
 from tributary.extractors.html_extractor import HTMLExtractor
+from tributary.extractors.json_extractor import JSONExtractor
 from tributary.extractors.pdf_extractor import PDFExtractor
 from tributary.extractors.text_extractor import TextExtractor
-from tributary.extractors.markdown_extractor import MarkdownExtractor 
+from tributary.extractors.markdown_extractor import MarkdownExtractor
 from pathlib import Path
 
 _REGISTRY = {
@@ -14,6 +15,7 @@ _REGISTRY = {
     ".htm": HTMLExtractor,
     ".csv": CSVExtractor,
     ".tsv": CSVExtractor,
+    ".json": JSONExtractor,
     ".pdf": PDFExtractor
 }
 

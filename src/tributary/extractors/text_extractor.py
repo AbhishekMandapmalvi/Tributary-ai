@@ -1,12 +1,12 @@
 from tributary.extractors.base import BaseExtractor
 from tributary.extractors.models import ExtractionResult
-from time import time
+from time import perf_counter
 
 class TextExtractor(BaseExtractor):
     async def extract(self, bytes_data: bytes, source_name: str) -> ExtractionResult:
-        start_time = time()
-        text = self._decode_bytes(bytes_data)
-        extraction_time_ms = (time() - start_time) * 1000
+        start_time = perf_counter()
+        text = self._decode_bytes(bytes_data, source_name)
+        extraction_time_ms = (perf_counter() - start_time) * 1000
         
         return ExtractionResult(
             text=text,
