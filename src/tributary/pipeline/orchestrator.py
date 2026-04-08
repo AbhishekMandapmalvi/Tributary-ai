@@ -21,7 +21,9 @@ class Pipeline:
         destination: BaseDestination,
         extractor: BaseExtractor | None = None,
         max_workers: int = 3,
-        batch_size: int = 10,
+        batch_size: int = 256,
+        max_concurrent_embeds: int = 3,
+        queue_size: int | None = None,
     ):
         self.source = source
         self.extractor = extractor
@@ -30,11 +32,13 @@ class Pipeline:
         self.destination = destination
         self.max_workers = max_workers
         self.batch_size = batch_size
+        self.max_concurrent_embeds = max_concurrent_embeds
+        self.queue_size = queue_size or max_workers * 2
 
     async def run(self) -> PipelineResult:
         start = perf_counter()
         result = PipelineResult()
-        queue = asyncio.Queue()
+        queue = asyncio.Queue(maxsize=self.queue_size)
 
         producer = asyncio.create_task(self._produce(queue, result))
         workers = [
@@ -67,6 +71,8 @@ class Pipeline:
             await queue.put(source_result)
 
     async def _worker(self, queue: asyncio.Queue, result: PipelineResult):
+        embed_sem = asyncio.Semaphore(self.max_concurrent_embeds)
+
         while True:
             source_result = await queue.get()
             if source_result is None:
@@ -79,19 +85,26 @@ class Pipeline:
                 extractor = self.extractor or get_extractor_for_extension(file_name)
                 extraction = await extractor.extract(source_result.raw_bytes, file_name)
 
-                # Chunk
-                chunks = self.chunker.chunk(extraction.text, file_name)
+                # Chunk (offloaded to thread — CPU-bound work)
+                chunks = await asyncio.to_thread(self.chunker.chunk, extraction.text, file_name)
                 if not chunks:
                     result.successful += 1
                     queue.task_done()
                     continue
 
-                # Embed and store in batches
-                for i in range(0, len(chunks), self.batch_size):
-                    batch = chunks[i:i + self.batch_size]
-                    texts = [c.text for c in batch]
-                    embeddings = await self.embedder.embed_chunks(texts, file_name)
-                    await self.destination.store(embeddings)
+                # Embed and store in concurrent batches
+                batches = [
+                    chunks[i:i + self.batch_size]
+                    for i in range(0, len(chunks), self.batch_size)
+                ]
+
+                async def _embed_and_store(batch):
+                    async with embed_sem:
+                        texts = [c.text for c in batch]
+                        embeddings = await self.embedder.embed_chunks(texts, file_name)
+                        await self.destination.store(embeddings)
+
+                await asyncio.gather(*[_embed_and_store(b) for b in batches])
 
                 result.successful += 1
                 logger.info("Document processed", file_name=file_name, chunks=len(chunks))
