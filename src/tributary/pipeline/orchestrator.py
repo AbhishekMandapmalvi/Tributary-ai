@@ -10,6 +10,7 @@ from tributary.pipeline.metrics import MetricsCollector
 from tributary.pipeline.state_store import StateStore
 from tributary.pipeline.retry import RetryPolicy, DeadLetterQueue
 from tributary.pipeline.correlation import new_correlation_id
+from tributary.pipeline.adaptive_batcher import AdaptiveBatcher
 from collections.abc import Callable
 from time import perf_counter
 import asyncio
@@ -38,6 +39,7 @@ class Pipeline:
         retry_policy: RetryPolicy | None = None,
         dead_letter_queue: DeadLetterQueue | None = None,
         checkpoint_interval: int = 10,
+        adaptive_batcher: AdaptiveBatcher | None = None,
     ):
         self.source = source
         self.extractor = extractor
@@ -53,6 +55,7 @@ class Pipeline:
         self.retry_policy = retry_policy or RetryPolicy(max_retries=0)
         self.dlq = dead_letter_queue
         self.checkpoint_interval = checkpoint_interval
+        self.adaptive_batcher = adaptive_batcher
         self._shutdown_event = asyncio.Event()
         self._docs_since_checkpoint = 0
 
@@ -121,6 +124,8 @@ class Pipeline:
 
         result.time_ms = (perf_counter() - start) * 1000
         result.metrics = metrics.summary()
+        if self.adaptive_batcher:
+            result.metrics["adaptive_batching"] = self.adaptive_batcher.summary()
 
         logger.info(
             "Pipeline complete",
@@ -253,10 +258,17 @@ class Pipeline:
         if not chunks:
             return 0
 
+        # Determine batch size — adaptive or fixed
+        current_batch_size = (
+            self.adaptive_batcher.get_batch_size()
+            if self.adaptive_batcher
+            else self.batch_size
+        )
+
         # Embed and store in concurrent batches
         batches = [
-            chunks[i:i + self.batch_size]
-            for i in range(0, len(chunks), self.batch_size)
+            chunks[i:i + current_batch_size]
+            for i in range(0, len(chunks), current_batch_size)
         ]
 
         async def _embed_and_store(batch: list) -> None:
@@ -264,8 +276,17 @@ class Pipeline:
                 texts = [c.text for c in batch]
 
                 t1 = perf_counter()
-                embeddings = await self.embedder.embed_chunks(texts, file_name)
-                await metrics.record_stage(file_name, "embedding", (perf_counter() - t1) * 1000)
+                try:
+                    embeddings = await self.embedder.embed_chunks(texts, file_name)
+                    embed_ms = (perf_counter() - t1) * 1000
+                    await metrics.record_stage(file_name, "embedding", embed_ms)
+
+                    if self.adaptive_batcher:
+                        await self.adaptive_batcher.record_latency(embed_ms)
+                except Exception:
+                    if self.adaptive_batcher:
+                        await self.adaptive_batcher.record_error()
+                    raise
 
                 t1 = perf_counter()
                 await self.destination.store(embeddings)

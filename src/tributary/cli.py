@@ -17,18 +17,40 @@ console = Console()
 
 
 def _build_pipeline(config: dict, on_event=None) -> Pipeline:
+    from tributary.pipeline.adaptive_batcher import AdaptiveBatcher
+    from tributary.pipeline.state_store import StateStore
+    from tributary.pipeline.retry import RetryPolicy, DeadLetterQueue
+
     source = get_source(config["source"]["type"], **config["source"].get("params", {}))
     chunker = get_chunker(config["chunker"]["strategy"], **config["chunker"].get("params", {}))
     embedder = get_embedder(config["embedder"]["provider"], **config["embedder"].get("params", {}))
     destination = get_destination(config["destination"]["type"], **config["destination"].get("params", {}))
 
     pipeline_params = config.get("pipeline", {})
+
+    # Build objects from nested config sections
+    adaptive_cfg = pipeline_params.pop("adaptive_batching", None)
+    adaptive_batcher = AdaptiveBatcher(**adaptive_cfg) if adaptive_cfg else None
+
+    state_cfg = pipeline_params.pop("state_store", None)
+    state_store = StateStore(**state_cfg) if state_cfg else None
+
+    retry_cfg = pipeline_params.pop("retry_policy", None)
+    retry_policy = RetryPolicy(**retry_cfg) if retry_cfg else None
+
+    dlq_cfg = pipeline_params.pop("dead_letter_queue", None)
+    dead_letter_queue = DeadLetterQueue(**dlq_cfg) if dlq_cfg else None
+
     return Pipeline(
         source=source,
         chunker=chunker,
         embedder=embedder,
         destination=destination,
         on_event=on_event,
+        adaptive_batcher=adaptive_batcher,
+        state_store=state_store,
+        retry_policy=retry_policy,
+        dead_letter_queue=dead_letter_queue,
         **pipeline_params,
     )
 

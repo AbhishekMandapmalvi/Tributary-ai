@@ -191,6 +191,7 @@ Need a different provider? `CustomEmbedder` accepts any sync or async function, 
 - **Per-stage metrics** — extraction, chunking, embedding, and storage are individually timed with min/avg/max stats
 - **Event callbacks** — sync or async hooks for `pipeline_started`, `document_started`, `document_completed`, `document_failed`, `pipeline_completed`
 - **Connection pooling** — all destinations use persistent connections via `connect()`/`close()` lifecycle, initialized once and reused across all batches
+- **Adaptive batch sizing** — auto-tunes embedding batch size based on API response latency, halves on errors (rate limits/timeouts), respects min/max bounds
 - **Lazy dependency loading** — optional packages (OpenAI, Pinecone, PyMuPDF, etc.) are only loaded when used, with interactive install prompts for missing dependencies
 
 ---
@@ -276,7 +277,7 @@ The [examples/](examples/) directory shows things the CLI can't do:
 ## Tests
 
 ```bash
-pytest -v  # 202 tests passing
+pytest -v  # 212 tests passing
 ```
 
 ---

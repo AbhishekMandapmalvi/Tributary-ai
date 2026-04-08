@@ -26,3 +26,24 @@ destination:
 pipeline:
   max_workers: 3
   batch_size: 256
+  max_concurrent_embeds: 3
+  queue_size: 6
+  checkpoint_interval: 10
+
+  ## Resilience: uncomment to enable
+  # state_store:
+  #   path: .tributary_state.json
+  # retry_policy:
+  #   max_retries: 3
+  #   base_delay: 1.0
+  #   max_delay: 30.0
+  # dead_letter_queue:
+  #   path: .tributary_dlq.jsonl
+
+  ## Adaptive batch sizing: uncomment to enable
+  ## Automatically tunes batch size based on embedding API latency.
+  # adaptive_batching:
+  #   initial_batch_size: 64
+  #   min_batch_size: 8
+  #   max_batch_size: 512
+  #   target_latency_ms: 2000
