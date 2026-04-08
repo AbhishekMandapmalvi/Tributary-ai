@@ -71,3 +71,70 @@ def test_registry_custom():
 def test_unknown_provider_raises():
     with pytest.raises(ValueError, match="Unknown embedder provider"):
         get_embedder("unknown")
+
+
+@pytest.mark.asyncio
+async def test_cache_avoids_duplicate_embeds():
+    call_count = {"n": 0}
+
+    def counting_embed(texts):
+        call_count["n"] += len(texts)
+        return [[float(len(t))] * 3 for t in texts]
+
+    embedder = CustomEmbedder(embed_fn=counting_embed)
+
+    # First call — all texts are new
+    await embedder.embed_chunks(["hello", "world"], source_name="a.txt")
+    assert call_count["n"] == 2
+
+    # Second call — same texts, should come from cache
+    results = await embedder.embed_chunks(["hello", "world"], source_name="b.txt")
+    assert call_count["n"] == 2  # no new embed calls
+    assert results[0].vector == [5.0, 5.0, 5.0]
+    assert results[1].vector == [5.0, 5.0, 5.0]
+
+
+@pytest.mark.asyncio
+async def test_cache_partial_hit():
+    call_count = {"n": 0}
+
+    def counting_embed(texts):
+        call_count["n"] += len(texts)
+        return [[float(len(t))] * 3 for t in texts]
+
+    embedder = CustomEmbedder(embed_fn=counting_embed)
+
+    await embedder.embed_chunks(["hello"], source_name="a.txt")
+    assert call_count["n"] == 1
+
+    # "hello" cached, "new" is not
+    results = await embedder.embed_chunks(["hello", "new"], source_name="b.txt")
+    assert call_count["n"] == 2  # only 1 new embed call
+    assert results[0].vector == [5.0, 5.0, 5.0]
+    assert results[1].vector == [3.0, 3.0, 3.0]
+
+
+@pytest.mark.asyncio
+async def test_cache_eviction():
+    call_count = {"n": 0}
+
+    def counting_embed(texts):
+        call_count["n"] += len(texts)
+        return [[float(len(t))] * 3 for t in texts]
+
+    embedder = CustomEmbedder(embed_fn=counting_embed, max_cache_size=2)
+
+    await embedder.embed_chunks(["aa", "bb"], source_name="a.txt")
+    assert call_count["n"] == 2
+
+    # This should evict "aa" (oldest)
+    await embedder.embed_chunks(["cc"], source_name="a.txt")
+    assert call_count["n"] == 3
+    assert len(embedder._cache) == 2
+
+    # "bb" should still be cached, "aa" should not
+    await embedder.embed_chunks(["bb"], source_name="a.txt")
+    assert call_count["n"] == 3  # cache hit
+
+    await embedder.embed_chunks(["aa"], source_name="a.txt")
+    assert call_count["n"] == 4  # cache miss — was evicted

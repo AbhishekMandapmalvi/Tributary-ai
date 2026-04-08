@@ -4,8 +4,8 @@ import asyncio
 
 
 class CustomEmbedder(BaseEmbedder):
-    def __init__(self, embed_fn: Callable[[list[str]], list[list[float]]], model_name: str = "custom"):
-        super().__init__(model_name)
+    def __init__(self, embed_fn: Callable[[list[str]], list[list[float]]], model_name: str = "custom", max_cache_size: int = 1024):
+        super().__init__(model_name, max_cache_size)
         self.embed_fn = embed_fn
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
