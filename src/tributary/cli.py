@@ -23,9 +23,23 @@ def _build_pipeline(config: dict, on_event=None) -> Pipeline:
 
     from tributary.destinations.multi_destination import MultiDestination
 
+    from tributary.chunkers.router import ChunkerRouter
+
     source = get_source(config["source"]["type"], **config["source"].get("params", {}))
-    chunker = get_chunker(config["chunker"]["strategy"], **config["chunker"].get("params", {}))
     embedder = get_embedder(config["embedder"]["provider"], **config["embedder"].get("params", {}))
+
+    # Build chunker — with optional conditional routing
+    chunker_cfg = config["chunker"]
+    default_chunker = get_chunker(chunker_cfg["strategy"], **chunker_cfg.get("params", {}))
+    routing_cfg = chunker_cfg.get("routing")
+    if routing_cfg:
+        rules = {
+            ext: get_chunker(rule["strategy"], **rule.get("params", {}))
+            for ext, rule in routing_cfg.items()
+        }
+        chunker = ChunkerRouter(default=default_chunker, rules=rules)
+    else:
+        chunker = default_chunker
 
     # Support single destination or list of destinations
     dest_cfg = config["destination"]

@@ -174,6 +174,32 @@ Extractors are auto-detected by file extension. All handle UTF-8 with Latin-1 fa
 | Sentence | `SentenceChunker` | `sentences_per_chunk`, `overlap_sentences` |
 | Token-based | `TokenBasedChunker` | `chunk_size`, `overlap`, `tokenizer` |
 | Sliding window | `SlidingWindowChunker` | `window_size`, `step_size` |
+| Conditional | `ChunkerRouter` | `default`, `rules` (by extension) |
+
+**Conditional routing** — different chunking strategies per file type:
+
+```yaml
+chunker:
+  strategy: fixed
+  params: { chunk_size: 500, overlap: 50 }
+  routing:
+    ".pdf":
+      strategy: recursive
+      params: { chunk_size: 800, overlap: 100 }
+    ".md":
+      strategy: sentence
+      params: { sentences_per_chunk: 5, overlap_sentences: 1 }
+```
+
+```python
+# Python API
+from tributary.chunkers.router import ChunkerRouter
+
+router = ChunkerRouter(
+    default=FixedChunker(chunk_size=500),
+    rules={".pdf": RecursiveChunker(chunk_size=800), ".md": SentenceChunker()},
+)
+```
 
 ### Embedders
 
@@ -316,7 +342,7 @@ The [examples/](examples/) directory shows things the CLI can't do:
 ## Tests
 
 ```bash
-pytest -v  # 218 tests passing
+pytest -v  # 226 tests passing
 ```
 
 ---
@@ -333,3 +359,4 @@ pytest -v  # 218 tests passing
 | **Observer** | `on_event` callback | Monitor pipeline progress without coupling |
 | **Feedback Loop** | `AdaptiveBatcher` | Auto-tune batch size from embedding API response times |
 | **Composite** | `MultiDestination` | Fan-out to multiple destinations as one |
+| **Router** | `ChunkerRouter` | Route documents to different chunkers by file type |

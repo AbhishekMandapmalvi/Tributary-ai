@@ -4,6 +4,7 @@ from tributary.chunkers.recursive_chunker import RecursiveChunker
 from tributary.chunkers.sentence_chunker import SentenceChunker
 from tributary.chunkers.token_based_chunker import TokenBasedChunker
 from tributary.chunkers.sliding_window_chunker import SlidingWindowChunker
+from tributary.chunkers.router import ChunkerRouter
 
 _REGISTRY = {
     "fixed": FixedChunker,
