@@ -28,6 +28,7 @@ dependencies = [
     "pymupdf>=1.27.2.2",
     "pyyaml>=6.0.3",
     "qdrant-client>=1.17.1",
+    "rich>=14.3.3",
     "structlog>=25.5.0",
     "tiktoken>=0.12.0",
 ]

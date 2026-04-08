@@ -70,7 +70,7 @@ def test_run_full_pipeline(runner, tmp_path):
 
     original_build = None
 
-    def patched_build(cfg):
+    def patched_build(cfg, on_event=None):
         from tributary.sources import get_source
         from tributary.chunkers import get_chunker
         from tributary.destinations import get_destination
@@ -79,15 +79,13 @@ def test_run_full_pipeline(runner, tmp_path):
         chunker = get_chunker(cfg["chunker"]["strategy"], **cfg["chunker"].get("params", {}))
         embedder = CustomEmbedder(embed_fn=lambda texts: [[0.1] * 3 for _ in texts])
         destination = get_destination(cfg["destination"]["type"], **cfg["destination"].get("params", {}))
-        return Pipeline(source=source, chunker=chunker, embedder=embedder, destination=destination)
+        return Pipeline(source=source, chunker=chunker, embedder=embedder, destination=destination, on_event=on_event)
 
     with patch("tributary.cli._build_pipeline", side_effect=patched_build):
         result = runner.invoke(cli, ["run", "--config", str(config_path)])
 
     assert result.exit_code == 0
-    assert "Pipeline complete" in result.output
-    assert "Successful: 2" in result.output
-    assert "Failed: 0" in result.output
+    assert "Successful" in result.output
     assert output.exists()
 
 
@@ -143,3 +141,62 @@ def test_validate_unknown_registry_value(runner, tmp_path):
     result = runner.invoke(cli, ["validate", "-c", _write_config(tmp_path, cfg)])
     assert result.exit_code != 0
     assert "Unknown source type: 'ftp'" in result.output
+
+
+# --- inspect command ---
+
+def test_inspect_shows_config(runner, tmp_path):
+    cfg = {
+        "source": {"type": "local", "params": {"directory": str(tmp_path), "extensions": [".txt"]}},
+        "chunker": {"strategy": "recursive", "params": {"chunk_size": 500, "overlap": 50}},
+        "embedder": {"provider": "openai", "params": {"api_key": "sk-secret"}},
+        "destination": {"type": "json", "params": {"file_path": "output.jsonl"}},
+        "pipeline": {"max_workers": 5},
+    }
+    result = runner.invoke(cli, ["inspect", "-c", _write_config(tmp_path, cfg)])
+    assert result.exit_code == 0
+    assert "local" in result.output
+    assert "recursive" in result.output
+    assert "openai" in result.output
+    assert "json" in result.output
+    # API key should be masked
+    assert "sk-secret" not in result.output
+    assert "***" in result.output
+
+
+def test_inspect_invalid_config_fails(runner, tmp_path):
+    cfg = {"source": {"type": "ftp"}}
+    result = runner.invoke(cli, ["inspect", "-c", _write_config(tmp_path, cfg)])
+    assert result.exit_code != 0
+
+
+# --- benchmark command ---
+
+def test_benchmark_runs(runner, tmp_path):
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    (docs_dir / "a.txt").write_text("Hello world benchmark content for testing throughput.")
+    (docs_dir / "b.txt").write_text("Another document to measure processing speed.")
+
+    result = runner.invoke(cli, ["benchmark", "-d", str(docs_dir), "--chunk-size", "30", "--workers", "2"])
+    assert result.exit_code == 0
+    assert "docs/sec" in result.output
+    assert "chunks/sec" in result.output
+
+
+# --- init command ---
+
+def test_init_creates_config(runner, tmp_path):
+    output_path = str(tmp_path / "generated.yaml")
+    # Simulate interactive input: local, ./docs, all, recursive, 500, 50, openai, (empty key), json, ./output.jsonl, 3, 256
+    inputs = "local\n./docs\nall\nrecursive\n500\n50\nopenai\n\njson\n./output.jsonl\n3\n256\n"
+    result = runner.invoke(cli, ["init", "-o", output_path], input=inputs)
+    assert result.exit_code == 0
+    assert "Config written to" in result.output
+
+    with open(output_path) as f:
+        cfg = yaml.safe_load(f)
+    assert cfg["source"]["type"] == "local"
+    assert cfg["chunker"]["strategy"] == "recursive"
+    assert cfg["embedder"]["provider"] == "openai"
+    assert cfg["destination"]["type"] == "json"

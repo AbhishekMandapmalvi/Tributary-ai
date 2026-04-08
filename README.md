@@ -47,11 +47,20 @@ print(f"Metrics: {result.metrics}")
 ## CLI
 
 ```bash
+# Scaffold a new config interactively
+tributary init --output pipeline.yaml
+
 # Validate config without running
 tributary validate --config pipeline.yaml
 
-# Run the pipeline
+# Dry run — show what the config would do
+tributary inspect --config pipeline.yaml
+
+# Run the pipeline (with progress bar and rich output)
 tributary run --config pipeline.yaml
+
+# Benchmark throughput on sample data
+tributary benchmark --docs-dir ./docs --chunk-size 500 --workers 3
 ```
 
 Example `pipeline.yaml`:
@@ -178,6 +187,64 @@ Need a different provider? `CustomEmbedder` accepts any sync or async function, 
 
 ---
 
+## Reliability & Resilience
+
+```python
+from tributary.pipeline.state_store import StateStore
+from tributary.pipeline.retry import RetryPolicy, DeadLetterQueue
+
+pipeline = Pipeline(
+    source=..., chunker=..., embedder=..., destination=...,
+    state_store=StateStore(".tributary_state.json"),
+    retry_policy=RetryPolicy(max_retries=3, base_delay=1.0),
+    dead_letter_queue=DeadLetterQueue(".tributary_dlq.jsonl"),
+    checkpoint_interval=10,
+)
+```
+
+| Feature | How it works |
+|---------|--------------|
+| **Document deduplication** | SHA-256 hash of content — already-processed documents are skipped on restart |
+| **Idempotent restart** | `StateStore` loads from disk on init, pipeline resumes where it left off |
+| **Retry with exponential backoff** | Failed documents retry up to `max_retries` times with `base_delay * 2^attempt` delay |
+| **Dead-letter queue** | After all retries exhausted, failed documents are persisted to a JSONL file for inspection |
+| **Checkpointing** | State saved to disk every N documents (configurable via `checkpoint_interval`) |
+| **Graceful shutdown** | SIGINT/SIGTERM stops fetching new documents, finishes current work, saves state |
+
+All resilience features are opt-in. Pass nothing and the pipeline works exactly as before.
+
+---
+
+## Observability
+
+**Correlation IDs** — each document gets a unique 12-character ID that flows through every log line, making it easy to trace a single document across extraction, chunking, embedding, and storage stages.
+
+**Cost estimation** — estimate embedding API costs before running:
+
+```bash
+tributary cost-estimate --docs-dir ./docs --model text-embedding-3-small
+```
+
+```python
+from tributary.pipeline.cost_estimator import estimate_cost
+
+est = estimate_cost(chunks, model_name="text-embedding-3-small")
+print(f"~{est.estimated_tokens:,} tokens, ~${est.estimated_cost_usd:.4f}")
+```
+
+**OpenTelemetry export** — bridge pipeline events to Prometheus/Grafana/Datadog:
+
+```python
+from tributary.pipeline.otel_exporter import TributaryMetricsExporter
+
+exporter = TributaryMetricsExporter(service_name="my-pipeline")
+pipeline = Pipeline(..., on_event=exporter.on_event)
+```
+
+Exposes counters (`documents.processed`, `documents.failed`, `pipeline.runs`) and histograms (`pipeline.duration_ms`, `document.chunks`). Requires `opentelemetry-sdk` — gracefully no-ops if not installed.
+
+---
+
 ## Examples
 
 The [examples/](examples/) directory shows things the CLI can't do:
@@ -193,7 +260,7 @@ The [examples/](examples/) directory shows things the CLI can't do:
 ## Tests
 
 ```bash
-pytest -v  # 165 tests passing
+pytest -v  # 192 tests passing
 ```
 
 ---

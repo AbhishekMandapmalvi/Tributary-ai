@@ -25,3 +25,6 @@ venv/
 
 # Claude Code session data
 .claude/
+
+# Internal docs
+BACKLOG.md

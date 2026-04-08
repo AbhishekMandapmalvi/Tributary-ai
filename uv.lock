@@ -3118,6 +3118,7 @@ dependencies = [
     { name = "pymupdf" },
     { name = "pyyaml" },
     { name = "qdrant-client" },
+    { name = "rich" },
     { name = "structlog" },
     { name = "tiktoken" },
 ]
@@ -3156,6 +3157,7 @@ requires-dist = [
     { name = "pymupdf", specifier = ">=1.27.2.2" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "qdrant-client", specifier = ">=1.17.1" },
+    { name = "rich", specifier = ">=14.3.3" },
     { name = "structlog", specifier = ">=25.5.0" },
     { name = "tiktoken", specifier = ">=0.12.0" },
 ]

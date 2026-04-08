@@ -7,12 +7,17 @@ from tributary.destinations.base import BaseDestination
 from tributary.pipeline.models import PipelineResult, FailedDocument
 from tributary.pipeline.events import PipelineEvent
 from tributary.pipeline.metrics import MetricsCollector
+from tributary.pipeline.state_store import StateStore
+from tributary.pipeline.retry import RetryPolicy, DeadLetterQueue
+from tributary.pipeline.correlation import new_correlation_id
 from collections.abc import Callable
 from time import perf_counter
 import asyncio
+import signal
 import structlog
 
 logger = structlog.get_logger(__name__)
+
 
 
 class Pipeline:
@@ -28,6 +33,11 @@ class Pipeline:
         max_concurrent_embeds: int = 3,
         queue_size: int | None = None,
         on_event: Callable[[PipelineEvent], None] | None = None,
+        # Resilience
+        state_store: StateStore | None = None,
+        retry_policy: RetryPolicy | None = None,
+        dead_letter_queue: DeadLetterQueue | None = None,
+        checkpoint_interval: int = 10,
     ):
         self.source = source
         self.extractor = extractor
@@ -39,8 +49,14 @@ class Pipeline:
         self.max_concurrent_embeds = max_concurrent_embeds
         self.queue_size = queue_size or max_workers * 2
         self.on_event = on_event
+        self.state_store = state_store
+        self.retry_policy = retry_policy or RetryPolicy(max_retries=0)
+        self.dlq = dead_letter_queue
+        self.checkpoint_interval = checkpoint_interval
+        self._shutdown_event = asyncio.Event()
+        self._docs_since_checkpoint = 0
 
-    async def _emit(self, event: PipelineEvent):
+    async def _emit(self, event: PipelineEvent) -> None:
         if self.on_event is None:
             return
         if asyncio.iscoroutinefunction(self.on_event):
@@ -48,11 +64,34 @@ class Pipeline:
         else:
             self.on_event(event)
 
+    def _install_signal_handlers(self, loop: asyncio.AbstractEventLoop) -> None:
+        try:
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                loop.add_signal_handler(sig, self._request_shutdown)
+        except NotImplementedError:
+            # Windows doesn't support add_signal_handler for SIGTERM
+            pass
+
+    def _request_shutdown(self) -> None:
+        logger.info("Shutdown requested — finishing current documents...")
+        self._shutdown_event.set()
+
+    async def _maybe_checkpoint(self) -> None:
+        if self.state_store is None:
+            return
+        self._docs_since_checkpoint += 1
+        if self._docs_since_checkpoint >= self.checkpoint_interval:
+            await self.state_store.checkpoint()
+            self._docs_since_checkpoint = 0
+
     async def run(self) -> PipelineResult:
         start = perf_counter()
         result = PipelineResult()
         metrics = MetricsCollector()
         queue: asyncio.Queue[object] = asyncio.Queue(maxsize=self.queue_size)
+
+        loop = asyncio.get_running_loop()
+        self._install_signal_handlers(loop)
 
         await self._emit(PipelineEvent(event_type="pipeline_started"))
 
@@ -70,6 +109,10 @@ class Pipeline:
         await asyncio.gather(*workers)
 
         await self.destination.close()
+
+        # Final checkpoint
+        if self.state_store:
+            await self.state_store.checkpoint()
 
         # Collect final cache stats
         hits, misses = self.embedder.get_cache_stats()
@@ -96,12 +139,23 @@ class Pipeline:
 
         return result
 
-    async def _produce(self, queue: asyncio.Queue, result: PipelineResult):
+    async def _produce(self, queue: asyncio.Queue, result: PipelineResult) -> None:
         async for source_result in self.source.fetch():
+            if self._shutdown_event.is_set():
+                logger.info("Shutdown: stopping document fetch")
+                break
+
+            # Deduplication — skip already-processed documents
+            if self.state_store:
+                content_hash = StateStore.hash_content(source_result.raw_bytes)
+                if self.state_store.is_processed(content_hash):
+                    logger.info("Skipping duplicate", file_name=source_result.file_name)
+                    continue
+
             result.total_documents += 1
             await queue.put(source_result)
 
-    async def _worker(self, queue: asyncio.Queue, result: PipelineResult, metrics: MetricsCollector):
+    async def _worker(self, queue: asyncio.Queue, result: PipelineResult, metrics: MetricsCollector) -> None:
         embed_sem = asyncio.Semaphore(self.max_concurrent_embeds)
 
         while True:
@@ -111,82 +165,113 @@ class Pipeline:
                 break
 
             file_name = source_result.file_name
+            content_hash = StateStore.hash_content(source_result.raw_bytes) if self.state_store else None
+            cid = new_correlation_id()
 
             await self._emit(PipelineEvent(
                 event_type="document_started",
                 source_name=file_name,
             ))
+            logger.debug("Document assigned", file_name=file_name, correlation_id=cid)
 
-            try:
-                # Extract
-                t0 = perf_counter()
-                extractor = self.extractor or get_extractor_for_extension(file_name)
-                extraction = await extractor.extract(source_result.raw_bytes, file_name)
-                await metrics.record_stage(file_name, "extraction", (perf_counter() - t0) * 1000)
+            last_error: Exception | None = None
+            last_stage = "unknown"
 
-                # Chunk (offloaded to thread — CPU-bound work)
-                t0 = perf_counter()
-                chunks = await asyncio.to_thread(self.chunker.chunk, extraction.text, file_name)
-                await metrics.record_stage(file_name, "chunking", (perf_counter() - t0) * 1000)
-                await metrics.record_chunks(file_name, len(chunks))
+            for attempt in range(self.retry_policy.max_retries + 1):
+                try:
+                    if attempt > 0:
+                        delay = self.retry_policy.delay_for_attempt(attempt - 1)
+                        logger.info("Retrying document", file_name=file_name, attempt=attempt, delay=delay)
+                        await asyncio.sleep(delay)
 
-                if not chunks:
+                    chunks_count = await self._process_document(source_result, file_name, metrics, embed_sem)
+
+                    # Success
                     result.successful += 1
+                    if self.state_store and content_hash:
+                        await self.state_store.mark_processed(content_hash, file_name)
+                    await self._maybe_checkpoint()
+
+                    logger.info("Document processed", file_name=file_name, attempt=attempt)
                     await self._emit(PipelineEvent(
                         event_type="document_completed",
                         source_name=file_name,
-                        chunks_count=0,
+                        chunks_count=chunks_count,
                     ))
-                    queue.task_done()
-                    continue
+                    last_error = None
+                    break
 
-                # Embed and store in concurrent batches
-                batches = [
-                    chunks[i:i + self.batch_size]
-                    for i in range(0, len(chunks), self.batch_size)
-                ]
+                except Exception as e:
+                    last_error = e
+                    last_stage = self._identify_stage(e)
+                    if not self.retry_policy.should_retry(attempt + 1):
+                        break
+                    logger.warning("Document failed, will retry", file_name=file_name, attempt=attempt, error=str(e))
 
-                async def _embed_and_store(batch):
-                    async with embed_sem:
-                        texts = [c.text for c in batch]
-
-                        t1 = perf_counter()
-                        embeddings = await self.embedder.embed_chunks(texts, file_name)
-                        await metrics.record_stage(file_name, "embedding", (perf_counter() - t1) * 1000)
-
-                        t1 = perf_counter()
-                        await self.destination.store(embeddings)
-                        await metrics.record_stage(file_name, "storage", (perf_counter() - t1) * 1000)
-
-                await asyncio.gather(*[_embed_and_store(b) for b in batches])
-
-                result.successful += 1
-                logger.info("Document processed", file_name=file_name, chunks=len(chunks))
-
-                await self._emit(PipelineEvent(
-                    event_type="document_completed",
-                    source_name=file_name,
-                    chunks_count=len(chunks),
-                ))
-
-            except Exception as e:
+            if last_error is not None:
                 result.failed += 1
-                stage = self._identify_stage(e)
                 result.failures.append(FailedDocument(
                     source_name=file_name,
-                    stage=stage,
-                    error=str(e),
+                    stage=last_stage,
+                    error=str(last_error),
                 ))
-                logger.error("Document failed", file_name=file_name, stage=stage, error=str(e))
+                logger.error("Document failed permanently", file_name=file_name, stage=last_stage, error=str(last_error))
+
+                if self.dlq:
+                    await self.dlq.push(file_name, last_stage, str(last_error), self.retry_policy.max_retries)
 
                 await self._emit(PipelineEvent(
                     event_type="document_failed",
                     source_name=file_name,
-                    stage=stage,
-                    error=str(e),
+                    stage=last_stage,
+                    error=str(last_error),
                 ))
 
             queue.task_done()
+
+    async def _process_document(
+        self,
+        source_result: object,
+        file_name: str,
+        metrics: MetricsCollector,
+        embed_sem: asyncio.Semaphore,
+    ) -> int:
+        """Extract, chunk, embed, store a single document. Returns chunk count. Raises on failure."""
+        # Extract
+        t0 = perf_counter()
+        extractor = self.extractor or get_extractor_for_extension(file_name)
+        extraction = await extractor.extract(source_result.raw_bytes, file_name)  # type: ignore[attr-defined]
+        await metrics.record_stage(file_name, "extraction", (perf_counter() - t0) * 1000)
+
+        # Chunk (offloaded to thread — CPU-bound work)
+        t0 = perf_counter()
+        chunks = await asyncio.to_thread(self.chunker.chunk, extraction.text, file_name)
+        await metrics.record_stage(file_name, "chunking", (perf_counter() - t0) * 1000)
+        await metrics.record_chunks(file_name, len(chunks))
+
+        if not chunks:
+            return 0
+
+        # Embed and store in concurrent batches
+        batches = [
+            chunks[i:i + self.batch_size]
+            for i in range(0, len(chunks), self.batch_size)
+        ]
+
+        async def _embed_and_store(batch: list) -> None:
+            async with embed_sem:
+                texts = [c.text for c in batch]
+
+                t1 = perf_counter()
+                embeddings = await self.embedder.embed_chunks(texts, file_name)
+                await metrics.record_stage(file_name, "embedding", (perf_counter() - t1) * 1000)
+
+                t1 = perf_counter()
+                await self.destination.store(embeddings)
+                await metrics.record_stage(file_name, "storage", (perf_counter() - t1) * 1000)
+
+        await asyncio.gather(*[_embed_and_store(b) for b in batches])
+        return len(chunks)
 
     @staticmethod
     def _identify_stage(error: Exception) -> str:
