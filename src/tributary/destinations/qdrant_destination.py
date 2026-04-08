@@ -1,0 +1,35 @@
+from tributary.destinations.base import BaseDestination
+from tributary.embedders.models import EmbeddingResult
+import hashlib
+
+
+class QdrantDestination(BaseDestination):
+    def __init__(self, collection_name: str, url: str = "http://localhost:6333", api_key: str | None = None):
+        from qdrant_client import AsyncQdrantClient, models
+        self.collection_name = collection_name
+        self.client = AsyncQdrantClient(url=url, api_key=api_key)
+        self.models = models
+
+    async def store(self, results: list[EmbeddingResult]) -> None:
+        points = [
+            self.models.PointStruct(
+                id=self._make_id(result.source_name, result.chunk_index),
+                vector=result.vector,
+                payload={
+                    "chunk_text": result.chunk_text,
+                    "source_name": result.source_name,
+                    "chunk_index": result.chunk_index,
+                    "model_name": result.model_name,
+                },
+            )
+            for result in results
+        ]
+        await self.client.upsert(collection_name=self.collection_name, points=points)
+
+    async def close(self) -> None:
+        await self.client.close()
+
+    @staticmethod
+    def _make_id(source_name: str, chunk_index: int) -> int:
+        key = f"{source_name}#{chunk_index}"
+        return int(hashlib.sha256(key.encode()).hexdigest()[:16], 16)
