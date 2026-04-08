@@ -29,7 +29,7 @@ class ChromaDestination(BaseDestination):
         await asyncio.to_thread(
             self.collection.upsert,
             ids=ids,
-            embeddings=embeddings,
+            embeddings=embeddings,  # type: ignore[arg-type]
             documents=documents,
-            metadatas=metadatas,
+            metadatas=metadatas,  # type: ignore[arg-type]
         )

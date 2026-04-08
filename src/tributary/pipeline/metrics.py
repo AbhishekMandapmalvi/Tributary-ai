@@ -2,24 +2,24 @@ import asyncio
 
 
 class MetricsCollector:
-    def __init__(self):
+    def __init__(self) -> None:
         self._lock = asyncio.Lock()
         self._stages: dict[str, list[float]] = {}
         self._chunks: list[int] = []
         self._cache_hits: int = 0
         self._cache_misses: int = 0
 
-    async def record_stage(self, file_name: str, stage: str, duration_ms: float):
+    async def record_stage(self, file_name: str, stage: str, duration_ms: float) -> None:
         async with self._lock:
             if stage not in self._stages:
                 self._stages[stage] = []
             self._stages[stage].append(duration_ms)
 
-    async def record_chunks(self, file_name: str, count: int):
+    async def record_chunks(self, file_name: str, count: int) -> None:
         async with self._lock:
             self._chunks.append(count)
 
-    async def record_cache(self, hits: int, misses: int):
+    async def record_cache(self, hits: int, misses: int) -> None:
         async with self._lock:
             self._cache_hits += hits
             self._cache_misses += misses

@@ -1,6 +1,6 @@
 from tributary.sources.base import BaseSource
 from tributary.sources.models import SourceResult
-from typing import AsyncGenerator
+from collections.abc import AsyncIterator
 import pathlib
 from gcloud.aio.storage import Storage
 import structlog
@@ -14,7 +14,7 @@ class GCSSource(BaseSource):
         self.bucket_name = bucket
         self.prefix = prefix
 
-    async def fetch(self) -> AsyncGenerator[SourceResult, None]:
+    async def fetch(self) -> AsyncIterator[SourceResult]:
         async with Storage() as storage:
             page_token = None
 

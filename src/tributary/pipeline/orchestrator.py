@@ -52,7 +52,7 @@ class Pipeline:
         start = perf_counter()
         result = PipelineResult()
         metrics = MetricsCollector()
-        queue = asyncio.Queue(maxsize=self.queue_size)
+        queue: asyncio.Queue[object] = asyncio.Queue(maxsize=self.queue_size)
 
         await self._emit(PipelineEvent(event_type="pipeline_started"))
 

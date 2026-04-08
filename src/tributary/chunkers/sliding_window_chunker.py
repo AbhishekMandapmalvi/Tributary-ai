@@ -15,7 +15,7 @@ class SlidingWindowChunker(BaseChunker):
         if not text:
             return []
 
-        chunks = []
+        chunks: list[ChunkResult] = []
         start = 0
 
         while start < len(text):

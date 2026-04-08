@@ -1,6 +1,6 @@
 from tributary.sources.base import BaseSource
 from tributary.sources.models import SourceResult
-from typing import AsyncGenerator 
+from collections.abc import AsyncIterator 
 import structlog
 import pathlib
 
@@ -14,13 +14,13 @@ class LocalSource(BaseSource):
         self.file_paths = file_paths or []
         self.directory = pathlib.Path(directory) if directory else None
 
-    async def fetch(self) -> AsyncGenerator[SourceResult, None]:
+    async def fetch(self) -> AsyncIterator[SourceResult]:
         all_paths = list(self.file_paths)
 
         if self.directory and self.directory.is_dir():
-            for file_path in self.directory.rglob('*'):
-                if file_path.is_file():
-                    all_paths.append(str(file_path))
+            for path in self.directory.rglob('*'):
+                if path.is_file():
+                    all_paths.append(str(path))
 
         for file_path in all_paths:
             if not self._is_supported_extension(file_path):

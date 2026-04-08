@@ -12,7 +12,7 @@ class JSONExtractor(BaseExtractor):
             data = json.loads(raw_text)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in '{source_name}': {e}") from e
-        lines = []
+        lines: list[str] = []
         self._flatten(data, "", lines)
         text = "\n".join(lines)
         extraction_time_ms = (perf_counter() - start_time) * 1000

@@ -1,6 +1,6 @@
 from tributary.sources.base import BaseSource
 from tributary.sources.models import SourceResult
-from typing import AsyncGenerator
+from collections.abc import AsyncIterator
 import pathlib
 from azure.storage.blob.aio import BlobServiceClient
 import structlog
@@ -18,11 +18,11 @@ class AzureBlobSource(BaseSource):
         self.account_url = account_url
         self.prefix = prefix
 
-    async def fetch(self) -> AsyncGenerator[SourceResult, None]:
+    async def fetch(self) -> AsyncIterator[SourceResult]:
         if self.connection_string:
             service_client = BlobServiceClient.from_connection_string(self.connection_string)
         else:
-            service_client = BlobServiceClient(self.account_url)
+            service_client = BlobServiceClient(self.account_url)  # type: ignore[arg-type]
 
         async with service_client:
             container_client = service_client.get_container_client(self.container_name)

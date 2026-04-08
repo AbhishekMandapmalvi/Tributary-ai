@@ -23,4 +23,4 @@ class PineconeDestination(BaseDestination):
             )
             for result in results
         ]
-        await asyncio.to_thread(self.index.upsert, vectors=vectors)
+        await asyncio.to_thread(self.index.upsert, vectors=vectors)  # type: ignore[arg-type]

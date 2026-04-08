@@ -23,7 +23,7 @@ class SentenceChunker(BaseChunker):
         if not sentences:
             return []
 
-        chunks = []
+        chunks: list[ChunkResult] = []
         step = self.sentences_per_chunk - self.overlap_sentences
         search_from = 0
 

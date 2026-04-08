@@ -61,7 +61,7 @@ class TokenBasedChunker(BaseChunker):
         if not tokens:
             return []
 
-        chunks = []
+        chunks: list[ChunkResult] = []
         step = self.chunk_size - self.overlap
         start = 0
         char_offset = 0

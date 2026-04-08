@@ -1,6 +1,6 @@
 from tributary.sources.base import BaseSource
 from tributary.sources.models import SourceResult
-from typing import AsyncGenerator
+from collections.abc import AsyncIterator
 import pathlib
 import aiobotocore
 import structlog
@@ -13,7 +13,7 @@ class S3Source(BaseSource):
         self.bucket_name = bucket
         self.prefix = prefix
 
-    async def fetch(self) -> AsyncGenerator[SourceResult, None]:
+    async def fetch(self) -> AsyncIterator[SourceResult]:
         session = aiobotocore.session.get_session()
 
         async with session.create_client('s3') as s3_client:

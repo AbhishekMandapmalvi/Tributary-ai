@@ -24,4 +24,4 @@ def get_extractor_for_extension(filename: str) -> BaseExtractor:
     extractor_cls = _REGISTRY.get(extension.lower())
     if extractor_cls is None:
         raise ValueError(f"No extractor found for extension: {extension}")
-    return extractor_cls()
+    return extractor_cls()  # type: ignore[abstract]

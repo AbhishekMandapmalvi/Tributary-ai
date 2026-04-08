@@ -14,4 +14,4 @@ class CohereEmbedder(BaseEmbedder):
             model=self.model_name,
             input_type=self.input_type,
         )
-        return [list(v) for v in response.embeddings]
+        return [list(v) for v in response.embeddings]  # type: ignore[arg-type]

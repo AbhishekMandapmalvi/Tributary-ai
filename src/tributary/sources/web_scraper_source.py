@@ -1,6 +1,6 @@
 from tributary.sources.base import BaseSource
 from tributary.sources.models import SourceResult
-from typing import AsyncGenerator
+from collections.abc import AsyncIterator
 from urllib.parse import urlparse
 import aiohttp
 import asyncio
@@ -15,7 +15,7 @@ class WebScraperSource(BaseSource):
         self.max_concurrent = max_concurrent
         self.timeout = timeout
 
-    async def fetch(self) -> AsyncGenerator[SourceResult, None]:
+    async def fetch(self) -> AsyncIterator[SourceResult]:
         semaphore = asyncio.Semaphore(self.max_concurrent)
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
             for url in self.urls:
@@ -24,7 +24,7 @@ class WebScraperSource(BaseSource):
                         async with session.get(url) as response:
                             raw_bytes = await response.read()
                         parsed = urlparse(url)
-                        name = parsed.path.rstrip("/").split("/")[-1] if parsed.path.strip("/") else parsed.hostname
+                        name = parsed.path.rstrip("/").split("/")[-1] if parsed.path.strip("/") else (parsed.hostname or url)
                         yield SourceResult(
                             raw_bytes=raw_bytes,
                             file_name=name,

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import pathlib
-from typing import AsyncGenerator
+from collections.abc import AsyncIterator
 from tributary.sources.models import SourceResult
 import structlog
 
@@ -25,11 +25,11 @@ class BaseSource(ABC):
         return file_extension in [ext.lower() for ext in self.extensions]    
     
     @abstractmethod
-    async def fetch(self) -> AsyncGenerator[SourceResult, None]:
+    async def fetch(self) -> AsyncIterator[SourceResult]:
         """
         Read data from the source and return it as a SourceResult.
 
         Returns:
-            SourceResult: The result of reading the source.
+            AsyncIterator of SourceResult objects.
         """
-        pass
+        yield  # type: ignore[misc]

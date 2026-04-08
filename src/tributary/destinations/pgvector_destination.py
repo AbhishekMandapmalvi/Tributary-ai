@@ -1,6 +1,11 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from tributary.destinations.base import BaseDestination
 from tributary.embedders.models import EmbeddingResult
 import json
+
+if TYPE_CHECKING:
+    import asyncpg
 
 
 class PgvectorDestination(BaseDestination):
@@ -8,9 +13,9 @@ class PgvectorDestination(BaseDestination):
         self.dsn = dsn
         self.table_name = table_name
         self.vector_dimensions = vector_dimensions
-        self.pool = None
+        self.pool: asyncpg.Pool | None = None
 
-    async def _ensure_pool(self):
+    async def _ensure_pool(self) -> None:
         if self.pool is None:
             import asyncpg
             self.pool = await asyncpg.create_pool(self.dsn)
@@ -32,6 +37,7 @@ class PgvectorDestination(BaseDestination):
         if not results:
             return
         await self._ensure_pool()
+        assert self.pool is not None
         async with self.pool.acquire() as conn:
             await conn.executemany(
                 f"""

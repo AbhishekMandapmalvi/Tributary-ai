@@ -137,7 +137,7 @@ Need a different provider? `CustomEmbedder` accepts any sync or async function, 
 ## Tests
 
 ```bash
-pytest -v  # 161 tests passing
+pytest -v  # 165 tests passing
 ```
 
 ---
