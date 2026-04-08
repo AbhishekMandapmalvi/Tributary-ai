@@ -21,10 +21,19 @@ def _build_pipeline(config: dict, on_event=None) -> Pipeline:
     from tributary.pipeline.state_store import StateStore
     from tributary.pipeline.retry import RetryPolicy, DeadLetterQueue
 
+    from tributary.destinations.multi_destination import MultiDestination
+
     source = get_source(config["source"]["type"], **config["source"].get("params", {}))
     chunker = get_chunker(config["chunker"]["strategy"], **config["chunker"].get("params", {}))
     embedder = get_embedder(config["embedder"]["provider"], **config["embedder"].get("params", {}))
-    destination = get_destination(config["destination"]["type"], **config["destination"].get("params", {}))
+
+    # Support single destination or list of destinations
+    dest_cfg = config["destination"]
+    if isinstance(dest_cfg, list):
+        destinations = [get_destination(d["type"], **d.get("params", {})) for d in dest_cfg]
+        destination = MultiDestination(destinations)
+    else:
+        destination = get_destination(dest_cfg["type"], **dest_cfg.get("params", {}))
 
     pipeline_params = config.get("pipeline", {})
 
@@ -74,11 +83,20 @@ def _validate_config(cfg: dict) -> list[str]:
         if section not in cfg:
             errors.append(f"Missing required section: '{section}'")
             continue
-        if not isinstance(cfg[section], dict):
-            errors.append(f"Section '{section}' must be a mapping, got {type(cfg[section]).__name__}")
+        val = cfg[section]
+        # destination can be a list (multi-destination)
+        if section == "destination" and isinstance(val, list):
+            for i, item in enumerate(val):
+                if not isinstance(item, dict):
+                    errors.append(f"destination[{i}] must be a mapping")
+                elif "type" not in item:
+                    errors.append(f"destination[{i}] missing required key: 'type'")
+            continue
+        if not isinstance(val, dict):
+            errors.append(f"Section '{section}' must be a mapping, got {type(val).__name__}")
             continue
         for key in required_keys:
-            if key not in cfg[section]:
+            if key not in val:
                 errors.append(f"Section '{section}' missing required key: '{key}'")
 
     registries = [
@@ -89,11 +107,19 @@ def _validate_config(cfg: dict) -> list[str]:
     ]
 
     for section, key, registry in registries:
-        if section in cfg and isinstance(cfg[section], dict) and key in cfg[section]:
-            value = cfg[section][key]
-            if value not in registry:
+        if section not in cfg:
+            continue
+        val = cfg[section]
+        # Handle multi-destination (list of dicts)
+        if section == "destination" and isinstance(val, list):
+            for i, item in enumerate(val):
+                if isinstance(item, dict) and key in item and item[key] not in registry:
+                    available = ", ".join(sorted(registry))
+                    errors.append(f"Unknown destination[{i}] {key}: '{item[key]}'. Available: {available}")
+        elif isinstance(val, dict) and key in val:
+            if val[key] not in registry:
                 available = ", ".join(sorted(registry))
-                errors.append(f"Unknown {section} {key}: '{value}'. Available: {available}")
+                errors.append(f"Unknown {section} {key}: '{val[key]}'. Available: {available}")
 
     return errors
 

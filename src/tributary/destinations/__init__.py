@@ -4,6 +4,7 @@ from tributary.destinations.pinecone_destination import PineconeDestination
 from tributary.destinations.qdrant_destination import QdrantDestination
 from tributary.destinations.chroma_destination import ChromaDestination
 from tributary.destinations.pgvector_destination import PgvectorDestination
+from tributary.destinations.multi_destination import MultiDestination
 
 _REGISTRY = {
     "json": JSONDestination,

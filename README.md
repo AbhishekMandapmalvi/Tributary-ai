@@ -97,9 +97,26 @@ destination:
 pipeline:
   max_workers: 3
   batch_size: 256
+
+  # Resilience (all optional)
+  state_store:
+    path: .tributary_state.json
+  retry_policy:
+    max_retries: 3
+    base_delay: 1.0
+    max_delay: 30.0
+  dead_letter_queue:
+    path: .tributary_dlq.jsonl
+
+  # Adaptive batch sizing (optional)
+  adaptive_batching:
+    initial_batch_size: 64
+    min_batch_size: 8
+    max_batch_size: 512
+    target_latency_ms: 2000
 ```
 
-For custom embedding functions, event callbacks, or multi-pass logic, use the Python API directly — see [examples/](examples/).
+Everything except `on_event` callbacks is configurable via YAML. For custom embedding functions, event callbacks, or multi-pass logic, use the Python API directly — see [examples/](examples/).
 
 ---
 
@@ -177,6 +194,28 @@ Need a different provider? `CustomEmbedder` accepts any sync or async function, 
 | Qdrant | `QdrantDestination` | Self-hosted / cloud |
 | ChromaDB | `ChromaDestination` | In-memory / local |
 | pgvector | `PgvectorDestination` | PostgreSQL extension |
+| Multi | `MultiDestination` | Fan-out to multiple destinations simultaneously |
+
+**Multi-destination** — send embeddings to multiple destinations at once:
+
+```yaml
+# YAML config
+destination:
+  - type: json
+    params: { file_path: ./backup.jsonl }
+  - type: qdrant
+    params: { collection_name: docs, url: "http://localhost:6333" }
+```
+
+```python
+# Python API
+from tributary.destinations.multi_destination import MultiDestination
+
+destination = MultiDestination([
+    JSONDestination("backup.jsonl"),
+    QdrantDestination(collection_name="docs"),
+])
+```
 
 ---
 
@@ -220,7 +259,7 @@ pipeline = Pipeline(
 | **Checkpointing** | State saved to disk every N documents (configurable via `checkpoint_interval`) |
 | **Graceful shutdown** | SIGINT/SIGTERM stops fetching new documents, finishes current work, saves state |
 
-All resilience features are opt-in. Pass nothing and the pipeline works exactly as before.
+All resilience features are opt-in — configurable via YAML or Python API. Pass nothing and the pipeline works exactly as before.
 
 ---
 
@@ -277,7 +316,7 @@ The [examples/](examples/) directory shows things the CLI can't do:
 ## Tests
 
 ```bash
-pytest -v  # 212 tests passing
+pytest -v  # 218 tests passing
 ```
 
 ---
@@ -292,3 +331,5 @@ pytest -v  # 212 tests passing
 | **Abstract Base Class** | `BaseSource`, `BaseExtractor`, `BaseChunker`, `BaseEmbedder`, `BaseDestination` | Enforce interface contracts |
 | **Template Method** | `BaseEmbedder.embed_chunks()` wraps `embed()` | Base class handles caching + metadata, subclass handles vectors |
 | **Observer** | `on_event` callback | Monitor pipeline progress without coupling |
+| **Feedback Loop** | `AdaptiveBatcher` | Auto-tune batch size from embedding API response times |
+| **Composite** | `MultiDestination` | Fan-out to multiple destinations as one |
