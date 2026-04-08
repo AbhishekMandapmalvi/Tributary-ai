@@ -6,11 +6,19 @@ import asyncio
 
 class PineconeDestination(BaseDestination):
     def __init__(self, index_name: str, api_key: str | None = None):
-        pinecone = lazy_import("pinecone")
-        self.client = pinecone.Pinecone(api_key=api_key)
-        self.index = self.client.Index(index_name)
+        self._index_name = index_name
+        self._api_key = api_key
+        self.client = None
+        self.index = None
+
+    async def connect(self) -> None:
+        if self.client is None:
+            pinecone = lazy_import("pinecone")
+            self.client = pinecone.Pinecone(api_key=self._api_key)
+            self.index = self.client.Index(self._index_name)
 
     async def store(self, results: list[EmbeddingResult]) -> None:
+        await self.connect()
         vectors = [
             (
                 f"{result.source_name}#{result.chunk_index}",
@@ -25,3 +33,7 @@ class PineconeDestination(BaseDestination):
             for result in results
         ]
         await asyncio.to_thread(self.index.upsert, vectors=vectors)  # type: ignore[arg-type]
+
+    async def close(self) -> None:
+        self.client = None
+        self.index = None

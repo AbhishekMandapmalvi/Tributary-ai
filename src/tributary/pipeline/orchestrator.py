@@ -93,6 +93,7 @@ class Pipeline:
         loop = asyncio.get_running_loop()
         self._install_signal_handlers(loop)
 
+        await self.destination.connect()
         await self._emit(PipelineEvent(event_type="pipeline_started"))
 
         producer = asyncio.create_task(self._produce(queue, result))

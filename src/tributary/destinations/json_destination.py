@@ -10,10 +10,21 @@ class JSONDestination(BaseDestination):
     def __init__(self, file_path: str):
         self.file_path = file_path
         self._lock = asyncio.Lock()
+        self._file = None
+
+    async def connect(self) -> None:
+        if self._file is None:
+            self._file = await aiofiles.open(self.file_path, "a")
 
     async def store(self, results: list[EmbeddingResult]) -> None:
+        await self.connect()
         async with self._lock:
-            async with aiofiles.open(self.file_path, "a") as f:
-                for result in results:
-                    line = json.dumps(asdict(result))
-                    await f.write(line + "\n")
+            for result in results:
+                line = json.dumps(asdict(result))
+                await self._file.write(line + "\n")
+            await self._file.flush()
+
+    async def close(self) -> None:
+        if self._file:
+            await self._file.close()
+            self._file = None

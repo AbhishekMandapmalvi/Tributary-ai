@@ -16,7 +16,7 @@ class PgvectorDestination(BaseDestination):
         self.vector_dimensions = vector_dimensions
         self.pool: asyncpg.Pool | None = None
 
-    async def _ensure_pool(self) -> None:
+    async def connect(self) -> None:
         if self.pool is None:
             asyncpg = lazy_import("asyncpg")
             self.pool = await asyncpg.create_pool(self.dsn)
@@ -37,7 +37,7 @@ class PgvectorDestination(BaseDestination):
     async def store(self, results: list[EmbeddingResult]) -> None:
         if not results:
             return
-        await self._ensure_pool()
+        await self.connect()
         assert self.pool is not None
         async with self.pool.acquire() as conn:
             await conn.executemany(
@@ -69,3 +69,4 @@ class PgvectorDestination(BaseDestination):
     async def close(self) -> None:
         if self.pool:
             await self.pool.close()
+            self.pool = None

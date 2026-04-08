@@ -6,16 +6,24 @@ import asyncio
 
 class ChromaDestination(BaseDestination):
     def __init__(self, collection_name: str, persist_path: str | None = None):
-        chromadb = lazy_import("chromadb")
-        if persist_path:
-            self.client = chromadb.PersistentClient(path=persist_path)
-        else:
-            self.client = chromadb.Client()
-        self.collection = self.client.get_or_create_collection(name=collection_name)
+        self._collection_name = collection_name
+        self._persist_path = persist_path
+        self.client = None
+        self.collection = None
+
+    async def connect(self) -> None:
+        if self.client is None:
+            chromadb = lazy_import("chromadb")
+            if self._persist_path:
+                self.client = chromadb.PersistentClient(path=self._persist_path)
+            else:
+                self.client = chromadb.Client()
+            self.collection = self.client.get_or_create_collection(name=self._collection_name)
 
     async def store(self, results: list[EmbeddingResult]) -> None:
         if not results:
             return
+        await self.connect()
         ids = [f"{r.source_name}#{r.chunk_index}" for r in results]
         embeddings = [r.vector for r in results]
         documents = [r.chunk_text for r in results]

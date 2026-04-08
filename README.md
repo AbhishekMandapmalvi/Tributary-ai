@@ -190,6 +190,8 @@ Need a different provider? `CustomEmbedder` accepts any sync or async function, 
 - **Thread-offloaded chunking** — CPU-bound chunking runs in `asyncio.to_thread` to avoid blocking the event loop
 - **Per-stage metrics** — extraction, chunking, embedding, and storage are individually timed with min/avg/max stats
 - **Event callbacks** — sync or async hooks for `pipeline_started`, `document_started`, `document_completed`, `document_failed`, `pipeline_completed`
+- **Connection pooling** — all destinations use persistent connections via `connect()`/`close()` lifecycle, initialized once and reused across all batches
+- **Lazy dependency loading** — optional packages (OpenAI, Pinecone, PyMuPDF, etc.) are only loaded when used, with interactive install prompts for missing dependencies
 
 ---
 
@@ -274,7 +276,7 @@ The [examples/](examples/) directory shows things the CLI can't do:
 ## Tests
 
 ```bash
-pytest -v  # 197 tests passing
+pytest -v  # 202 tests passing
 ```
 
 ---

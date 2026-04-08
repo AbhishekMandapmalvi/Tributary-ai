@@ -6,12 +6,20 @@ import hashlib
 
 class QdrantDestination(BaseDestination):
     def __init__(self, collection_name: str, url: str = "http://localhost:6333", api_key: str | None = None):
-        qdrant_client = lazy_import("qdrant_client", pip_name="qdrant-client")
         self.collection_name = collection_name
-        self.client = qdrant_client.AsyncQdrantClient(url=url, api_key=api_key)
-        self.models = qdrant_client.models
+        self._url = url
+        self._api_key = api_key
+        self.client = None
+        self.models = None
+
+    async def connect(self) -> None:
+        if self.client is None:
+            qdrant_client = lazy_import("qdrant_client", pip_name="qdrant-client")
+            self.client = qdrant_client.AsyncQdrantClient(url=self._url, api_key=self._api_key)
+            self.models = qdrant_client.models
 
     async def store(self, results: list[EmbeddingResult]) -> None:
+        await self.connect()
         points = [
             self.models.PointStruct(
                 id=self._make_id(result.source_name, result.chunk_index),
@@ -28,7 +36,9 @@ class QdrantDestination(BaseDestination):
         await self.client.upsert(collection_name=self.collection_name, points=points)
 
     async def close(self) -> None:
-        await self.client.close()
+        if self.client:
+            await self.client.close()
+            self.client = None
 
     @staticmethod
     def _make_id(source_name: str, chunk_index: int) -> int:

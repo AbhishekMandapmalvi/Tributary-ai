@@ -41,12 +41,14 @@ async def test_full_pipeline(tmp_path):
 
 @pytest.mark.asyncio
 async def test_mixed_file_types(tmp_path):
-    (tmp_path / "plain.txt").write_text("Plain text content for extraction.")
-    (tmp_path / "rich.md").write_text("# Heading\n\n**Bold** markdown content.")
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "plain.txt").write_text("Plain text content for extraction.")
+    (docs / "rich.md").write_text("# Heading\n\n**Bold** markdown content.")
     output = tmp_path / "output.jsonl"
 
     pipeline = Pipeline(
-        source=LocalSource(directory=str(tmp_path)),
+        source=LocalSource(directory=str(docs)),
         chunker=FixedChunker(chunk_size=50, overlap=0),
         embedder=CustomEmbedder(embed_fn=fake_embed),
         destination=JSONDestination(str(output)),
@@ -65,12 +67,14 @@ async def test_mixed_file_types(tmp_path):
 
 @pytest.mark.asyncio
 async def test_bad_file_among_good(tmp_path):
-    (tmp_path / "good.txt").write_text("This file is fine.")
-    (tmp_path / "bad.xyz").write_bytes(b"no extractor for this")
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "good.txt").write_text("This file is fine.")
+    (docs / "bad.xyz").write_bytes(b"no extractor for this")
     output = tmp_path / "output.jsonl"
 
     pipeline = Pipeline(
-        source=LocalSource(directory=str(tmp_path)),
+        source=LocalSource(directory=str(docs)),
         chunker=FixedChunker(chunk_size=50, overlap=0),
         embedder=CustomEmbedder(embed_fn=fake_embed),
         destination=JSONDestination(str(output)),
@@ -163,13 +167,15 @@ async def test_events_emitted(tmp_path):
 
 @pytest.mark.asyncio
 async def test_events_on_failure(tmp_path):
-    (tmp_path / "good.txt").write_text("Good content.")
-    (tmp_path / "bad.xyz").write_bytes(b"bad")
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "good.txt").write_text("Good content.")
+    (docs / "bad.xyz").write_bytes(b"bad")
     output = tmp_path / "output.jsonl"
     events = []
 
     pipeline = Pipeline(
-        source=LocalSource(directory=str(tmp_path)),
+        source=LocalSource(directory=str(docs)),
         chunker=FixedChunker(chunk_size=50, overlap=0),
         embedder=CustomEmbedder(embed_fn=fake_embed),
         destination=JSONDestination(str(output)),
