@@ -1,12 +1,13 @@
 from tributary.destinations.base import BaseDestination
 from tributary.embedders.models import EmbeddingResult
+from tributary.utils.lazy_import import lazy_import
 import asyncio
 
 
 class PineconeDestination(BaseDestination):
     def __init__(self, index_name: str, api_key: str | None = None):
-        from pinecone import Pinecone
-        self.client = Pinecone(api_key=api_key)
+        pinecone = lazy_import("pinecone")
+        self.client = pinecone.Pinecone(api_key=api_key)
         self.index = self.client.Index(index_name)
 
     async def store(self, results: list[EmbeddingResult]) -> None:

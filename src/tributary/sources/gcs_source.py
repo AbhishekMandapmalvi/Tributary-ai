@@ -1,8 +1,8 @@
 from tributary.sources.base import BaseSource
 from tributary.sources.models import SourceResult
+from tributary.utils.lazy_import import lazy_import
 from collections.abc import AsyncIterator
 import pathlib
-from gcloud.aio.storage import Storage
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -15,7 +15,8 @@ class GCSSource(BaseSource):
         self.prefix = prefix
 
     async def fetch(self) -> AsyncIterator[SourceResult]:
-        async with Storage() as storage:
+        gcloud_storage = lazy_import("gcloud.aio.storage", pip_name="gcloud-aio-storage")
+        async with gcloud_storage.Storage() as storage:
             page_token = None
 
             while True:

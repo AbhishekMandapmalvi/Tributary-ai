@@ -1,5 +1,6 @@
 from tributary.chunkers.models import ChunkResult
 from tributary.chunkers.base import BaseChunker
+from tributary.utils.lazy_import import lazy_import
 from collections.abc import Callable
 
 TIKTOKEN_ENCODINGS = {"cl100k_base", "o200k_base", "p50k_base", "r50k_base"}
@@ -7,12 +8,13 @@ TIKTOKEN_ENCODINGS = {"cl100k_base", "o200k_base", "p50k_base", "r50k_base"}
 
 def _load_tokenizer(tokenizer: str) -> tuple[Callable[[str], list[int]], Callable[[list[int]], str]]:
     if tokenizer in TIKTOKEN_ENCODINGS:
-        import tiktoken
+        tiktoken = lazy_import("tiktoken")
         enc = tiktoken.get_encoding(tokenizer)
         return enc.encode, enc.decode
 
     try:
-        from transformers import AutoTokenizer
+        transformers = lazy_import("transformers")
+        AutoTokenizer = transformers.AutoTokenizer
         hf_tokenizer = AutoTokenizer.from_pretrained(tokenizer)
         return (
             lambda text: hf_tokenizer.encode(text, add_special_tokens=False),

@@ -61,6 +61,12 @@ tributary run --config pipeline.yaml
 
 # Benchmark throughput on sample data
 tributary benchmark --docs-dir ./docs --chunk-size 500 --workers 3
+
+# Estimate embedding API costs
+tributary cost-estimate --docs-dir ./docs --model text-embedding-3-small
+
+# Run with real-time web dashboard
+tributary dashboard --config pipeline.yaml --port 8765
 ```
 
 Example `pipeline.yaml`:
@@ -243,6 +249,14 @@ pipeline = Pipeline(..., on_event=exporter.on_event)
 
 Exposes counters (`documents.processed`, `documents.failed`, `pipeline.runs`) and histograms (`pipeline.duration_ms`, `document.chunks`). Requires `opentelemetry-sdk` — gracefully no-ops if not installed.
 
+**Real-time dashboard** — browser-based live view of pipeline progress:
+
+```bash
+tributary dashboard --config pipeline.yaml --port 8765
+```
+
+Opens a web dashboard at `http://localhost:8765` showing live document count, success/failure rates, docs/sec throughput, event log, and failure details — all streamed via WebSocket.
+
 ---
 
 ## Examples
@@ -260,7 +274,7 @@ The [examples/](examples/) directory shows things the CLI can't do:
 ## Tests
 
 ```bash
-pytest -v  # 192 tests passing
+pytest -v  # 197 tests passing
 ```
 
 ---

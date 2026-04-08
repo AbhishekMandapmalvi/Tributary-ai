@@ -475,5 +475,53 @@ def cost_estimate(docs_dir, model, chunk_size, overlap):
         console.print(f"\n[yellow]No pricing found for '{model}'. Known models: {', '.join(sorted(DEFAULT_PRICING))}[/yellow]")
 
 
+@cli.command()
+@click.option("--config", "-c", required=True, type=click.Path(exists=True), help="Path to YAML config file.")
+@click.option("--port", "-p", default=8765, help="Dashboard port.")
+@click.option("--host", default="127.0.0.1", help="Dashboard host.")
+def dashboard(config, port, host):
+    """Run the pipeline with a real-time web dashboard."""
+    from tributary.dashboard.server import DashboardServer
+
+    with open(config) as f:
+        cfg = yaml.safe_load(f)
+
+    errors = _validate_config(cfg)
+    if errors:
+        console.print("[red]Config validation failed:[/red]")
+        for error in errors:
+            console.print(f"  [red]-[/red] {error}")
+        raise SystemExit(1)
+
+    async def run_with_dashboard():
+        server = DashboardServer(host=host, port=port)
+        pipeline = _build_pipeline(cfg, on_event=server.on_event)
+        await server.start()
+        console.print(f"  Dashboard: [bold cyan]http://{host}:{port}[/bold cyan]")
+        console.print(f"  Open in browser to see live progress.\n")
+
+        result = asyncio.run(pipeline.run()) if False else await pipeline.run()
+
+        # Keep dashboard alive briefly so user can see final state
+        console.print("\n  Pipeline finished. Dashboard still running — press Ctrl+C to exit.")
+        try:
+            await asyncio.sleep(3600)
+        except asyncio.CancelledError:
+            pass
+        finally:
+            await server.stop()
+
+        return result
+
+    try:
+        result = asyncio.run(run_with_dashboard())
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Stopped.[/yellow]")
+        return
+
+    console.print()
+    _print_result_table(result)
+
+
 if __name__ == "__main__":
     cli()

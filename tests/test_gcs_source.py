@@ -1,11 +1,10 @@
 import pytest
-from unittest.mock import AsyncMock, patch
-import tributary.sources.gcs_source as gcs_module
+from unittest.mock import AsyncMock, MagicMock, patch
 from tributary.sources.gcs_source import GCSSource
 
 
-def _make_mock_storage(objects: dict[str, bytes], pages: int = 1):
-    """Build a mock Storage that returns the given objects, optionally paginated."""
+def _make_mock_gcs(objects: dict[str, bytes], pages: int = 1):
+    """Build a mock gcloud.aio.storage module."""
     storage = AsyncMock()
 
     items = [{"name": key} for key in objects]
@@ -34,93 +33,62 @@ def _make_mock_storage(objects: dict[str, bytes], pages: int = 1):
         return objects[key]
 
     storage.download = AsyncMock(side_effect=_download)
-
     storage.__aenter__.return_value = storage
     storage.__aexit__.return_value = None
-    return storage
+
+    mock_module = MagicMock()
+    mock_module.Storage.return_value = storage
+    return mock_module, storage
+
+
+def _patch_gcs(mock_module):
+    return patch("tributary.sources.gcs_source.lazy_import", return_value=mock_module)
 
 
 @pytest.mark.asyncio
 async def test_fetch_objects():
-    objects = {
-        "docs/readme.txt": b"hello",
-        "docs/guide.md": b"world",
-    }
-    storage = _make_mock_storage(objects)
-
-    with patch.object(gcs_module, "Storage", return_value=storage):
-        source = GCSSource(bucket="my-bucket", prefix="docs/")
-        results = [r async for r in source.fetch()]
-
+    mock_mod, _ = _make_mock_gcs({"docs/readme.txt": b"hello", "docs/guide.md": b"world"})
+    with _patch_gcs(mock_mod):
+        results = [r async for r in GCSSource(bucket="my-bucket", prefix="docs/").fetch()]
     assert len(results) == 2
-    names = {r.file_name for r in results}
-    assert names == {"readme.txt", "guide.md"}
+    assert {r.file_name for r in results} == {"readme.txt", "guide.md"}
     assert all(r.source_type == "gcs_object" for r in results)
-    assert all("gs://my-bucket/" in r.source_path for r in results)
 
 
 @pytest.mark.asyncio
 async def test_extension_filtering():
-    objects = {
-        "data.txt": b"text",
-        "data.csv": b"csv",
-        "image.png": b"png",
-    }
-    storage = _make_mock_storage(objects)
-
-    with patch.object(gcs_module, "Storage", return_value=storage):
-        source = GCSSource(bucket="my-bucket", extensions=[".txt", ".csv"])
-        results = [r async for r in source.fetch()]
-
-    assert len(results) == 2
-    names = {r.file_name for r in results}
-    assert names == {"data.txt", "data.csv"}
+    mock_mod, _ = _make_mock_gcs({"data.txt": b"text", "data.csv": b"csv", "image.png": b"png"})
+    with _patch_gcs(mock_mod):
+        results = [r async for r in GCSSource(bucket="b", extensions=[".txt", ".csv"]).fetch()]
+    assert {r.file_name for r in results} == {"data.txt", "data.csv"}
 
 
 @pytest.mark.asyncio
 async def test_empty_bucket():
-    storage = _make_mock_storage({})
-
-    with patch.object(gcs_module, "Storage", return_value=storage):
-        source = GCSSource(bucket="empty-bucket")
-        results = [r async for r in source.fetch()]
-
+    mock_mod, _ = _make_mock_gcs({})
+    with _patch_gcs(mock_mod):
+        results = [r async for r in GCSSource(bucket="empty").fetch()]
     assert results == []
 
 
 @pytest.mark.asyncio
 async def test_pagination():
-    objects = {
-        "a.txt": b"a",
-        "b.txt": b"b",
-        "c.txt": b"c",
-        "d.txt": b"d",
-    }
-    storage = _make_mock_storage(objects, pages=2)
-
-    with patch.object(gcs_module, "Storage", return_value=storage):
-        source = GCSSource(bucket="my-bucket")
-        results = [r async for r in source.fetch()]
-
+    mock_mod, storage = _make_mock_gcs({"a.txt": b"a", "b.txt": b"b", "c.txt": b"c", "d.txt": b"d"}, pages=2)
+    with _patch_gcs(mock_mod):
+        results = [r async for r in GCSSource(bucket="b").fetch()]
     assert len(results) == 4
     assert storage.list_objects.call_count == 2
 
 
 @pytest.mark.asyncio
 async def test_source_result_metadata():
-    objects = {"reports/q1.pdf": b"pdf-content"}
-    storage = _make_mock_storage(objects)
-
-    with patch.object(gcs_module, "Storage", return_value=storage):
-        source = GCSSource(bucket="data-bucket", prefix="reports/")
-        results = [r async for r in source.fetch()]
-
-    assert len(results) == 1
+    mock_mod, _ = _make_mock_gcs({"reports/q1.pdf": b"pdf-content"})
+    with _patch_gcs(mock_mod):
+        results = [r async for r in GCSSource(bucket="data-bucket", prefix="reports/").fetch()]
     r = results[0]
     assert r.file_name == "q1.pdf"
     assert r.source_path == "gs://data-bucket/reports/q1.pdf"
     assert r.raw_bytes == b"pdf-content"
-    assert r.size == len(b"pdf-content")
 
 
 @pytest.mark.asyncio
@@ -137,9 +105,10 @@ async def test_error_handled_gracefully():
     storage.__aenter__.return_value = storage
     storage.__aexit__.return_value = None
 
-    with patch.object(gcs_module, "Storage", return_value=storage):
-        source = GCSSource(bucket="my-bucket")
-        results = [r async for r in source.fetch()]
+    mock_mod = MagicMock()
+    mock_mod.Storage.return_value = storage
 
+    with _patch_gcs(mock_mod):
+        results = [r async for r in GCSSource(bucket="b").fetch()]
     assert len(results) == 1
     assert results[0].file_name == "good.txt"

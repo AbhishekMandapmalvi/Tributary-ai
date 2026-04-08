@@ -1,8 +1,8 @@
 from tributary.sources.base import BaseSource
 from tributary.sources.models import SourceResult
+from tributary.utils.lazy_import import lazy_import
 from collections.abc import AsyncIterator
 import pathlib
-from azure.storage.blob.aio import BlobServiceClient
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -19,6 +19,8 @@ class AzureBlobSource(BaseSource):
         self.prefix = prefix
 
     async def fetch(self) -> AsyncIterator[SourceResult]:
+        azure_blob = lazy_import("azure.storage.blob.aio", pip_name="azure-storage-blob")
+        BlobServiceClient = azure_blob.BlobServiceClient
         if self.connection_string:
             service_client = BlobServiceClient.from_connection_string(self.connection_string)
         else:

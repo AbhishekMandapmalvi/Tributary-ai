@@ -1,8 +1,8 @@
 from tributary.sources.base import BaseSource
 from tributary.sources.models import SourceResult
+from tributary.utils.lazy_import import lazy_import
 from collections.abc import AsyncIterator
 from urllib.parse import urlparse
-import aiohttp
 import asyncio
 import structlog
 
@@ -16,6 +16,7 @@ class WebScraperSource(BaseSource):
         self.timeout = timeout
 
     async def fetch(self) -> AsyncIterator[SourceResult]:
+        aiohttp = lazy_import("aiohttp")
         semaphore = asyncio.Semaphore(self.max_concurrent)
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
             for url in self.urls:

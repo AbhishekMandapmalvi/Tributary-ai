@@ -1,11 +1,12 @@
 from tributary.destinations.base import BaseDestination
 from tributary.embedders.models import EmbeddingResult
+from tributary.utils.lazy_import import lazy_import
 import asyncio
 
 
 class ChromaDestination(BaseDestination):
     def __init__(self, collection_name: str, persist_path: str | None = None):
-        import chromadb
+        chromadb = lazy_import("chromadb")
         if persist_path:
             self.client = chromadb.PersistentClient(path=persist_path)
         else:

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tributary Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace; background: #0d1117; color: #c9d1d9; padding: 24px; }
+  h1 { color: #58a6ff; margin-bottom: 8px; font-size: 24px; }
+  .subtitle { color: #8b949e; margin-bottom: 24px; font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; text-align: center; }
+  .card .value { font-size: 36px; font-weight: bold; color: #58a6ff; }
+  .card .label { font-size: 12px; color: #8b949e; margin-top: 4px; text-transform: uppercase; }
+  .card.success .value { color: #3fb950; }
+  .card.failure .value { color: #f85149; }
+  .card.time .value { color: #d2a8ff; }
+  .section { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .section h2 { color: #58a6ff; font-size: 16px; margin-bottom: 12px; }
+  .log { max-height: 400px; overflow-y: auto; font-size: 13px; line-height: 1.6; }
+  .log-entry { padding: 4px 8px; border-radius: 4px; margin-bottom: 2px; }
+  .log-entry.started { background: #161b22; border-left: 3px solid #58a6ff; }
+  .log-entry.completed { background: #0d2818; border-left: 3px solid #3fb950; }
+  .log-entry.failed { background: #2d1215; border-left: 3px solid #f85149; }
+  .log-entry .time { color: #8b949e; font-size: 11px; }
+  .status { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+  .status.connected { background: #3fb950; }
+  .status.disconnected { background: #f85149; }
+  .progress-bar { width: 100%; height: 6px; background: #30363d; border-radius: 3px; margin-top: 12px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #58a6ff, #3fb950); transition: width 0.3s; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: #8b949e; padding: 8px; border-bottom: 1px solid #30363d; font-weight: normal; text-transform: uppercase; font-size: 11px; }
+  td { padding: 8px; border-bottom: 1px solid #21262d; }
+  .failures-table td.error { color: #f85149; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<h1>Tributary Dashboard</h1>
+<p class="subtitle"><span class="status disconnected" id="statusDot"></span><span id="statusText">Connecting...</span></p>
+
+<div class="grid">
+  <div class="card"><div class="value" id="total">0</div><div class="label">Total</div></div>
+  <div class="card success"><div class="value" id="success">0</div><div class="label">Successful</div></div>
+  <div class="card failure"><div class="value" id="failed">0</div><div class="label">Failed</div></div>
+  <div class="card time"><div class="value" id="elapsed">-</div><div class="label">Elapsed</div></div>
+  <div class="card"><div class="value" id="rate">-</div><div class="label">Docs/sec</div></div>
+</div>
+
+<div class="progress-bar"><div class="progress-fill" id="progress" style="width:0%"></div></div>
+
+<div class="section" id="failuresSection" style="display:none">
+  <h2>Failures</h2>
+  <table class="failures-table">
+    <thead><tr><th>Document</th><th>Stage</th><th>Error</th></tr></thead>
+    <tbody id="failuresBody"></tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>Event Log</h2>
+  <div class="log" id="log"></div>
+</div>
+
+<script>
+const state = { total: 0, success: 0, failed: 0, startTime: null, pipelineDone: false };
+
+function $(id) { return document.getElementById(id); }
+
+function formatTime(ms) {
+  if (ms < 1000) return ms.toFixed(0) + 'ms';
+  return (ms / 1000).toFixed(1) + 's';
+}
+
+function updateCards() {
+  $('total').textContent = state.total;
+  $('success').textContent = state.success;
+  $('failed').textContent = state.failed;
+  if (state.total > 0) {
+    const pct = ((state.success + state.failed) / state.total * 100);
+    $('progress').style.width = Math.min(pct, 100) + '%';
+  }
+  if (state.startTime) {
+    const elapsed = Date.now() - state.startTime;
+    $('elapsed').textContent = formatTime(elapsed);
+    if (state.success > 0) {
+      $('rate').textContent = (state.success / (elapsed / 1000)).toFixed(1);
+    }
+  }
+}
+
+function addLog(cls, text) {
+  const log = $('log');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry ' + cls;
+  const time = new Date().toLocaleTimeString();
+  entry.innerHTML = '<span class="time">' + time + '</span> ' + text;
+  log.prepend(entry);
+}
+
+function addFailure(name, stage, error) {
+  $('failuresSection').style.display = 'block';
+  const row = document.createElement('tr');
+  row.innerHTML = '<td>' + name + '</td><td>' + stage + '</td><td class="error" title="' + error.replace(/"/g, '&quot;') + '">' + error + '</td>';
+  $('failuresBody').appendChild(row);
+}
+
+function connect() {
+  const ws = new WebSocket('ws://' + location.host + '/ws');
+
+  ws.onopen = () => {
+    $('statusDot').className = 'status connected';
+    $('statusText').textContent = 'Connected';
+  };
+
+  ws.onclose = () => {
+    $('statusDot').className = 'status disconnected';
+    $('statusText').textContent = 'Disconnected';
+    setTimeout(connect, 2000);
+  };
+
+  ws.onmessage = (msg) => {
+    const event = JSON.parse(msg.data);
+
+    switch (event.event_type) {
+      case 'pipeline_started':
+        state.startTime = Date.now();
+        addLog('started', 'Pipeline started');
+        break;
+
+      case 'document_started':
+        state.total++;
+        addLog('started', 'Processing: <b>' + event.source_name + '</b>');
+        break;
+
+      case 'document_completed':
+        state.success++;
+        const chunks = event.chunks_count != null ? ' (' + event.chunks_count + ' chunks)' : '';
+        addLog('completed', 'Done: <b>' + event.source_name + '</b>' + chunks);
+        break;
+
+      case 'document_failed':
+        state.failed++;
+        addLog('failed', 'Failed: <b>' + event.source_name + '</b> at ' + event.stage + ': ' + event.error);
+        addFailure(event.source_name, event.stage || 'unknown', event.error || '');
+        break;
+
+      case 'pipeline_completed':
+        state.pipelineDone = true;
+        const time = event.time_ms ? formatTime(event.time_ms) : '-';
+        addLog('completed', 'Pipeline complete: ' + event.successful + '/' + event.total_documents + ' in ' + time);
+        $('progress').style.width = '100%';
+        $('elapsed').textContent = time;
+        break;
+    }
+    updateCards();
+  };
+}
+
+connect();
+setInterval(updateCards, 500);
+</script>
+</body>
+</html>

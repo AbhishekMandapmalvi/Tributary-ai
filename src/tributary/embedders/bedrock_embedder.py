@@ -1,4 +1,5 @@
 from tributary.embedders.base import BaseEmbedder
+from tributary.utils.lazy_import import lazy_import
 import json
 
 
@@ -8,7 +9,7 @@ class BedrockEmbedder(BaseEmbedder):
         self.region = region
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        import aiobotocore.session
+        aiobotocore = lazy_import("aiobotocore")
         session = aiobotocore.session.get_session()
         async with session.create_client("bedrock-runtime", region_name=self.region) as client:
             vectors = []

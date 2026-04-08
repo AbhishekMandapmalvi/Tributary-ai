@@ -1,36 +1,55 @@
 [project]
 name = "tributary"
 version = "0.1.0"
-description = "Add your description here"
+description = "A lightweight, high-concurrency data ingestion and chunking pipeline for RAG systems."
 readme = "README.md"
 authors = [
     { name = "AbhishekMandapmalvi", email = "abhishekrmandapmalvi@gmail.com" }
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "aiobotocore>=3.4.0",
+    # Core — always required
     "aiofiles>=25.1.0",
-    "aiohttp>=3.13.5",
-    "asyncpg>=0.31.0",
-    "azure-storage-blob>=12.28.0",
     "beautifulsoup4>=4.14.3",
-    "chromadb>=1.5.6",
     "click>=8.3.2",
-    "cohere>=5.21.1",
-    "gcloud-aio-storage>=9.6.4",
     "lxml>=6.0.2",
     "markdown-it-py>=4.0.0",
     "mdit-plain>=1.0.1",
-    "nltk>=3.9.4",
-    "openai>=2.30.0",
-    "pgvector>=0.4.2",
-    "pinecone>=8.1.1",
-    "pymupdf>=1.27.2.2",
     "pyyaml>=6.0.3",
-    "qdrant-client>=1.17.1",
     "rich>=14.3.3",
     "structlog>=25.5.0",
-    "tiktoken>=0.12.0",
+]
+
+[project.optional-dependencies]
+# Sources
+s3 = ["aiobotocore>=3.4.0"]
+gcs = ["gcloud-aio-storage>=9.6.4"]
+azure = ["azure-storage-blob>=12.28.0"]
+web = ["aiohttp>=3.13.5"]
+
+# Extractors
+pdf = ["pymupdf>=1.27.2.2"]
+
+# Chunkers
+sentence = ["nltk>=3.9.4"]
+token = ["tiktoken>=0.12.0"]
+
+# Embedders
+openai = ["openai>=2.30.0"]
+cohere = ["cohere>=5.21.1"]
+
+# Destinations
+pinecone = ["pinecone>=8.1.1"]
+qdrant = ["qdrant-client>=1.17.1"]
+chroma = ["chromadb>=1.5.6"]
+pgvector = ["asyncpg>=0.31.0"]
+
+# Dashboard
+dashboard = ["fastapi>=0.135.3", "uvicorn>=0.44.0", "websockets>=16.0"]
+
+# Everything
+all = [
+    "tributary[s3,gcs,azure,web,pdf,sentence,token,openai,cohere,pinecone,qdrant,chroma,pgvector,dashboard]",
 ]
 
 [project.scripts]
@@ -42,7 +61,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "aiohttp>=3.13.5",
+    "tributary[all]",
     "certifi>=2026.2.25",
     "moto[s3]>=5.1.22",
     "mypy>=1.20.0",

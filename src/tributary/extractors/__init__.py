@@ -16,8 +16,9 @@ _REGISTRY = {
     ".csv": CSVExtractor,
     ".tsv": CSVExtractor,
     ".json": JSONExtractor,
-    ".pdf": PDFExtractor
+    ".pdf": PDFExtractor,
 }
+
 
 def get_extractor_for_extension(filename: str) -> BaseExtractor:
     extension = Path(filename).suffix

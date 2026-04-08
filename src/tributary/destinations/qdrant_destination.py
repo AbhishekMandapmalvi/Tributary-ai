@@ -1,14 +1,15 @@
 from tributary.destinations.base import BaseDestination
 from tributary.embedders.models import EmbeddingResult
+from tributary.utils.lazy_import import lazy_import
 import hashlib
 
 
 class QdrantDestination(BaseDestination):
     def __init__(self, collection_name: str, url: str = "http://localhost:6333", api_key: str | None = None):
-        from qdrant_client import AsyncQdrantClient, models
+        qdrant_client = lazy_import("qdrant_client", pip_name="qdrant-client")
         self.collection_name = collection_name
-        self.client = AsyncQdrantClient(url=url, api_key=api_key)
-        self.models = models
+        self.client = qdrant_client.AsyncQdrantClient(url=url, api_key=api_key)
+        self.models = qdrant_client.models
 
     async def store(self, results: list[EmbeddingResult]) -> None:
         points = [

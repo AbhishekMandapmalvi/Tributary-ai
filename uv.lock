@@ -690,6 +690,22 @@ wheels = [
 ]
 
 [[package]]
+name = "fastapi"
+version = "0.135.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "annotated-doc" },
+    { name = "pydantic" },
+    { name = "starlette" },
+    { name = "typing-extensions" },
+    { name = "typing-inspection" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f7/e6/7adb4c5fa231e82c35b8f5741a9f2d055f520c29af5546fd70d3e8e1cd2e/fastapi-0.135.3.tar.gz", hash = "sha256:bd6d7caf1a2bdd8d676843cdcd2287729572a1ef524fc4d65c17ae002a1be654", size = 396524, upload-time = "2026-04-01T16:23:58.188Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/84/a4/5caa2de7f917a04ada20018eccf60d6cc6145b0199d55ca3711b0fc08312/fastapi-0.135.3-py3-none-any.whl", hash = "sha256:9b0f590c813acd13d0ab43dd8494138eb58e484bfac405db1f3187cfc5810d98", size = 117734, upload-time = "2026-04-01T16:23:59.328Z" },
+]
+
+[[package]]
 name = "fastavro"
 version = "1.12.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2071,18 +2087,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pgvector"
-version = "0.4.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/25/6c/6d8b4b03b958c02fa8687ec6063c49d952a189f8c91ebbe51e877dfab8f7/pgvector-0.4.2.tar.gz", hash = "sha256:322cac0c1dc5d41c9ecf782bd9991b7966685dee3a00bc873631391ed949513a", size = 31354, upload-time = "2025-12-05T01:07:17.87Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5a/26/6cee8a1ce8c43625ec561aff19df07f9776b7525d9002c86bceb3e0ac970/pgvector-0.4.2-py3-none-any.whl", hash = "sha256:549d45f7a18593783d5eec609ea1684a724ba8405c4cb182a0b2b08aeff04e08", size = 27441, upload-time = "2025-12-05T01:07:16.536Z" },
-]
-
-[[package]]
 name = "pinecone"
 version = "8.1.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2979,6 +2983,19 @@ wheels = [
 ]
 
 [[package]]
+name = "starlette"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/81/69/17425771797c36cded50b7fe44e850315d039f28b15901ab44839e70b593/starlette-1.0.0.tar.gz", hash = "sha256:6a4beaf1f81bb472fd19ea9b918b50dc3a77a6f2e190a12954b25e6ed5eea149", size = 2655289, upload-time = "2026-03-22T18:29:46.779Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0b/c9/584bc9651441b4ba60cc4d557d8a547b5aff901af35bda3a4ee30c819b82/starlette-1.0.0-py3-none-any.whl", hash = "sha256:d3ec55e0bb321692d275455ddfd3df75fff145d009685eb40dc91fc66b03d38b", size = 72651, upload-time = "2026-03-22T18:29:45.111Z" },
+]
+
+[[package]]
 name = "structlog"
 version = "25.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3098,34 +3115,83 @@ name = "tributary"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "aiobotocore" },
     { name = "aiofiles" },
-    { name = "aiohttp" },
-    { name = "asyncpg" },
-    { name = "azure-storage-blob" },
     { name = "beautifulsoup4" },
-    { name = "chromadb" },
     { name = "click" },
-    { name = "cohere" },
-    { name = "gcloud-aio-storage" },
     { name = "lxml" },
     { name = "markdown-it-py" },
     { name = "mdit-plain" },
-    { name = "nltk" },
-    { name = "openai" },
-    { name = "pgvector" },
-    { name = "pinecone" },
-    { name = "pymupdf" },
     { name = "pyyaml" },
-    { name = "qdrant-client" },
     { name = "rich" },
     { name = "structlog" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "aiobotocore" },
+    { name = "aiohttp" },
+    { name = "asyncpg" },
+    { name = "azure-storage-blob" },
+    { name = "chromadb" },
+    { name = "cohere" },
+    { name = "fastapi" },
+    { name = "gcloud-aio-storage" },
+    { name = "nltk" },
+    { name = "openai" },
+    { name = "pinecone" },
+    { name = "pymupdf" },
+    { name = "qdrant-client" },
     { name = "tiktoken" },
+    { name = "uvicorn" },
+    { name = "websockets" },
+]
+azure = [
+    { name = "azure-storage-blob" },
+]
+chroma = [
+    { name = "chromadb" },
+]
+cohere = [
+    { name = "cohere" },
+]
+dashboard = [
+    { name = "fastapi" },
+    { name = "uvicorn" },
+    { name = "websockets" },
+]
+gcs = [
+    { name = "gcloud-aio-storage" },
+]
+openai = [
+    { name = "openai" },
+]
+pdf = [
+    { name = "pymupdf" },
+]
+pgvector = [
+    { name = "asyncpg" },
+]
+pinecone = [
+    { name = "pinecone" },
+]
+qdrant = [
+    { name = "qdrant-client" },
+]
+s3 = [
+    { name = "aiobotocore" },
+]
+sentence = [
+    { name = "nltk" },
+]
+token = [
+    { name = "tiktoken" },
+]
+web = [
+    { name = "aiohttp" },
 ]
 
 [package.dev-dependencies]
 dev = [
-    { name = "aiohttp" },
     { name = "certifi" },
     { name = "moto", extra = ["s3"] },
     { name = "mypy" },
@@ -3137,34 +3203,37 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiobotocore", specifier = ">=3.4.0" },
+    { name = "aiobotocore", marker = "extra == 's3'", specifier = ">=3.4.0" },
     { name = "aiofiles", specifier = ">=25.1.0" },
-    { name = "aiohttp", specifier = ">=3.13.5" },
-    { name = "asyncpg", specifier = ">=0.31.0" },
-    { name = "azure-storage-blob", specifier = ">=12.28.0" },
+    { name = "aiohttp", marker = "extra == 'web'", specifier = ">=3.13.5" },
+    { name = "asyncpg", marker = "extra == 'pgvector'", specifier = ">=0.31.0" },
+    { name = "azure-storage-blob", marker = "extra == 'azure'", specifier = ">=12.28.0" },
     { name = "beautifulsoup4", specifier = ">=4.14.3" },
-    { name = "chromadb", specifier = ">=1.5.6" },
+    { name = "chromadb", marker = "extra == 'chroma'", specifier = ">=1.5.6" },
     { name = "click", specifier = ">=8.3.2" },
-    { name = "cohere", specifier = ">=5.21.1" },
-    { name = "gcloud-aio-storage", specifier = ">=9.6.4" },
+    { name = "cohere", marker = "extra == 'cohere'", specifier = ">=5.21.1" },
+    { name = "fastapi", marker = "extra == 'dashboard'", specifier = ">=0.135.3" },
+    { name = "gcloud-aio-storage", marker = "extra == 'gcs'", specifier = ">=9.6.4" },
     { name = "lxml", specifier = ">=6.0.2" },
     { name = "markdown-it-py", specifier = ">=4.0.0" },
     { name = "mdit-plain", specifier = ">=1.0.1" },
-    { name = "nltk", specifier = ">=3.9.4" },
-    { name = "openai", specifier = ">=2.30.0" },
-    { name = "pgvector", specifier = ">=0.4.2" },
-    { name = "pinecone", specifier = ">=8.1.1" },
-    { name = "pymupdf", specifier = ">=1.27.2.2" },
+    { name = "nltk", marker = "extra == 'sentence'", specifier = ">=3.9.4" },
+    { name = "openai", marker = "extra == 'openai'", specifier = ">=2.30.0" },
+    { name = "pinecone", marker = "extra == 'pinecone'", specifier = ">=8.1.1" },
+    { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.27.2.2" },
     { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "qdrant-client", specifier = ">=1.17.1" },
+    { name = "qdrant-client", marker = "extra == 'qdrant'", specifier = ">=1.17.1" },
     { name = "rich", specifier = ">=14.3.3" },
     { name = "structlog", specifier = ">=25.5.0" },
-    { name = "tiktoken", specifier = ">=0.12.0" },
+    { name = "tiktoken", marker = "extra == 'token'", specifier = ">=0.12.0" },
+    { name = "tributary", extras = ["s3", "gcs", "azure", "web", "pdf", "sentence", "token", "openai", "cohere", "pinecone", "qdrant", "chroma", "pgvector", "dashboard"], marker = "extra == 'all'" },
+    { name = "uvicorn", marker = "extra == 'dashboard'", specifier = ">=0.44.0" },
+    { name = "websockets", marker = "extra == 'dashboard'", specifier = ">=16.0" },
 ]
+provides-extras = ["s3", "gcs", "azure", "web", "pdf", "sentence", "token", "openai", "cohere", "pinecone", "qdrant", "chroma", "pgvector", "dashboard", "all"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "aiohttp", specifier = ">=3.13.5" },
     { name = "certifi", specifier = ">=2026.2.25" },
     { name = "moto", extras = ["s3"], specifier = ">=5.1.22" },
     { name = "mypy", specifier = ">=1.20.0" },

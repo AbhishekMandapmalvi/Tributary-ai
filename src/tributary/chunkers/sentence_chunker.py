@@ -1,9 +1,6 @@
 from tributary.chunkers.models import ChunkResult
 from tributary.chunkers.base import BaseChunker
-from nltk.tokenize import sent_tokenize
-import nltk
-
-nltk.download('punkt_tab', quiet=True)
+from tributary.utils.lazy_import import lazy_import
 
 
 class SentenceChunker(BaseChunker):
@@ -14,12 +11,15 @@ class SentenceChunker(BaseChunker):
             )
         self.sentences_per_chunk = sentences_per_chunk
         self.overlap_sentences = overlap_sentences
+        nltk = lazy_import("nltk")
+        nltk.download('punkt_tab', quiet=True)
+        self._sent_tokenize = nltk.tokenize.sent_tokenize
 
     def chunk(self, text: str, source_name: str = "unknown") -> list[ChunkResult]:
         if not text:
             return []
 
-        sentences = sent_tokenize(text)
+        sentences = self._sent_tokenize(text)
         if not sentences:
             return []
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from tributary.destinations.base import BaseDestination
 from tributary.embedders.models import EmbeddingResult
+from tributary.utils.lazy_import import lazy_import
 import json
 
 if TYPE_CHECKING:
@@ -17,7 +18,7 @@ class PgvectorDestination(BaseDestination):
 
     async def _ensure_pool(self) -> None:
         if self.pool is None:
-            import asyncpg
+            asyncpg = lazy_import("asyncpg")
             self.pool = await asyncpg.create_pool(self.dsn)
             async with self.pool.acquire() as conn:
                 await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
