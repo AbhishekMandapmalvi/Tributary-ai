@@ -44,6 +44,50 @@ print(f"Metrics: {result.metrics}")
 
 ---
 
+## CLI
+
+```bash
+# Validate config without running
+tributary validate --config pipeline.yaml
+
+# Run the pipeline
+tributary run --config pipeline.yaml
+```
+
+Example `pipeline.yaml`:
+
+```yaml
+source:
+  type: local
+  params:
+    directory: ./docs
+    extensions: [".txt", ".md", ".pdf"]
+
+chunker:
+  strategy: recursive
+  params:
+    chunk_size: 500
+    overlap: 50
+
+embedder:
+  provider: openai
+  params:
+    api_key: your-api-key-here
+
+destination:
+  type: json
+  params:
+    file_path: ./output.jsonl
+
+pipeline:
+  max_workers: 3
+  batch_size: 256
+```
+
+For custom embedding functions, event callbacks, or multi-pass logic, use the Python API directly — see [examples/](examples/).
+
+---
+
 ## Architecture
 
 ```
@@ -131,6 +175,18 @@ Need a different provider? `CustomEmbedder` accepts any sync or async function, 
 - **Thread-offloaded chunking** — CPU-bound chunking runs in `asyncio.to_thread` to avoid blocking the event loop
 - **Per-stage metrics** — extraction, chunking, embedding, and storage are individually timed with min/avg/max stats
 - **Event callbacks** — sync or async hooks for `pipeline_started`, `document_started`, `document_completed`, `document_failed`, `pipeline_completed`
+
+---
+
+## Examples
+
+The [examples/](examples/) directory shows things the CLI can't do:
+
+| Example | What it demonstrates |
+|---------|---------------------|
+| [`local_to_json.py`](examples/local_to_json.py) | Compare 3 chunking strategies on the same documents |
+| [`pdf_recursive_chunking.py`](examples/pdf_recursive_chunking.py) | Two-pass pipeline with automatic retry on failures |
+| [`with_events_and_metrics.py`](examples/with_events_and_metrics.py) | Live progress callbacks and per-stage performance analysis |
 
 ---
 
