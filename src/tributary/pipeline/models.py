@@ -15,3 +15,4 @@ class PipelineResult:
     failed: int = 0
     time_ms: float = 0.0
     failures: list[FailedDocument] = field(default_factory=list)
+    metrics: dict = field(default_factory=dict)

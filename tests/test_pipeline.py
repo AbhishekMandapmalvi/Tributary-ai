@@ -123,3 +123,131 @@ async def test_pipeline_result_metadata(tmp_path):
     assert result.failed == 0
     assert result.failures == []
     assert result.time_ms > 0
+
+
+@pytest.mark.asyncio
+async def test_events_emitted(tmp_path):
+    (tmp_path / "a.txt").write_text("Hello world document.")
+    (tmp_path / "b.txt").write_text("Another document here.")
+    output = tmp_path / "output.jsonl"
+    events = []
+
+    pipeline = Pipeline(
+        source=LocalSource(directory=str(tmp_path), extensions=[".txt"]),
+        chunker=FixedChunker(chunk_size=50, overlap=0),
+        embedder=CustomEmbedder(embed_fn=fake_embed),
+        destination=JSONDestination(str(output)),
+        on_event=lambda e: events.append(e),
+    )
+    await pipeline.run()
+
+    types = [e.event_type for e in events]
+    assert types[0] == "pipeline_started"
+    assert types[-1] == "pipeline_completed"
+    assert types.count("document_started") == 2
+    assert types.count("document_completed") == 2
+
+    # Each document_started is followed by its document_completed
+    for e in events:
+        if e.event_type == "document_completed":
+            assert e.source_name is not None
+            assert e.chunks_count is not None
+
+    # pipeline_completed has summary
+    final = events[-1]
+    assert final.total_documents == 2
+    assert final.successful == 2
+    assert final.failed == 0
+    assert final.time_ms > 0
+
+
+@pytest.mark.asyncio
+async def test_events_on_failure(tmp_path):
+    (tmp_path / "good.txt").write_text("Good content.")
+    (tmp_path / "bad.xyz").write_bytes(b"bad")
+    output = tmp_path / "output.jsonl"
+    events = []
+
+    pipeline = Pipeline(
+        source=LocalSource(directory=str(tmp_path)),
+        chunker=FixedChunker(chunk_size=50, overlap=0),
+        embedder=CustomEmbedder(embed_fn=fake_embed),
+        destination=JSONDestination(str(output)),
+        on_event=lambda e: events.append(e),
+    )
+    await pipeline.run()
+
+    types = [e.event_type for e in events]
+    assert "document_failed" in types
+
+    failed = [e for e in events if e.event_type == "document_failed"]
+    assert len(failed) == 1
+    assert failed[0].source_name == "bad.xyz"
+    assert failed[0].stage is not None
+    assert failed[0].error is not None
+
+
+@pytest.mark.asyncio
+async def test_async_event_callback(tmp_path):
+    (tmp_path / "doc.txt").write_text("Some content.")
+    output = tmp_path / "output.jsonl"
+    events = []
+
+    async def async_handler(event):
+        events.append(event)
+
+    pipeline = Pipeline(
+        source=LocalSource(directory=str(tmp_path), extensions=[".txt"]),
+        chunker=FixedChunker(chunk_size=50, overlap=0),
+        embedder=CustomEmbedder(embed_fn=fake_embed),
+        destination=JSONDestination(str(output)),
+        on_event=async_handler,
+    )
+    await pipeline.run()
+
+    types = [e.event_type for e in events]
+    assert "pipeline_started" in types
+    assert "document_started" in types
+    assert "document_completed" in types
+    assert "pipeline_completed" in types
+
+
+@pytest.mark.asyncio
+async def test_metrics_collected(tmp_path):
+    (tmp_path / "a.txt").write_text("First document with some text content here.")
+    (tmp_path / "b.txt").write_text("Second document with different content.")
+    output = tmp_path / "output.jsonl"
+
+    pipeline = Pipeline(
+        source=LocalSource(directory=str(tmp_path), extensions=[".txt"]),
+        chunker=FixedChunker(chunk_size=20, overlap=0),
+        embedder=CustomEmbedder(embed_fn=fake_embed),
+        destination=JSONDestination(str(output)),
+    )
+    result = await pipeline.run()
+
+    m = result.metrics
+    assert "extraction" in m
+    assert "chunking" in m
+    assert "embedding" in m
+    assert "storage" in m
+    assert "chunks" in m
+    assert "cache" in m
+
+    # 2 documents = 2 extraction and chunking calls
+    assert m["extraction"]["count"] == 2
+    assert m["chunking"]["count"] == 2
+
+    # Timing stats present and positive
+    for stage in ["extraction", "chunking", "embedding", "storage"]:
+        assert m[stage]["total_ms"] >= 0
+        assert m[stage]["avg_ms"] >= 0
+        assert m[stage]["min_ms"] >= 0
+        assert m[stage]["max_ms"] >= 0
+
+    # Chunk stats
+    assert m["chunks"]["total"] > 0
+    assert m["chunks"]["avg_per_doc"] > 0
+
+    # Cache stats
+    assert m["cache"]["hits"] + m["cache"]["misses"] > 0

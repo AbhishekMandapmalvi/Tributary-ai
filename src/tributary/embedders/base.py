@@ -9,6 +9,8 @@ class BaseEmbedder(ABC):
         self.model_name = model_name
         self._cache: OrderedDict[str, list[float]] = OrderedDict()
         self._max_cache_size = max_cache_size
+        self._cache_hits = 0
+        self._cache_misses = 0
 
     @abstractmethod
     async def embed(self, texts: list[str]) -> list[list[float]]:
@@ -38,8 +40,10 @@ class BaseEmbedder(ABC):
             if h in self._cache:
                 self._cache.move_to_end(h)
                 cached_vectors[i] = self._cache[h]
+                self._cache_hits += 1
             else:
                 uncached.append((i, text_chunks[i]))
+                self._cache_misses += 1
 
         # Embed only uncached texts
         if uncached:
@@ -65,6 +69,13 @@ class BaseEmbedder(ABC):
             )
             for i in range(len(text_chunks))
         ]
+
+    def get_cache_stats(self) -> tuple[int, int]:
+        """Return (hits, misses) and reset counters."""
+        hits, misses = self._cache_hits, self._cache_misses
+        self._cache_hits = 0
+        self._cache_misses = 0
+        return hits, misses
 
     async def embed_chunk(self, chunk_text: str, source_name: str, chunk_index: int) -> EmbeddingResult:
         """
