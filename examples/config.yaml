@@ -1,0 +1,28 @@
+source:
+  type: local
+  params:
+    directory: ./examples/docs
+    extensions: [".txt", ".md"]
+
+chunker:
+  strategy: fixed
+  params:
+    chunk_size: 500
+    overlap: 50
+
+## Embedder: use "openai" or "cohere" for production.
+## "custom" requires a Python callable and can't be configured via YAML —
+## use the Python API directly for custom embedding functions.
+embedder:
+  provider: openai
+  params:
+    api_key: your-api-key-here
+
+destination:
+  type: json
+  params:
+    file_path: ./output.jsonl
+
+pipeline:
+  max_workers: 3
+  batch_size: 256

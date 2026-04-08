@@ -15,6 +15,7 @@ dependencies = [
     "azure-storage-blob>=12.28.0",
     "beautifulsoup4>=4.14.3",
     "chromadb>=1.5.6",
+    "click>=8.3.2",
     "cohere>=5.21.1",
     "gcloud-aio-storage>=9.6.4",
     "lxml>=6.0.2",
@@ -25,13 +26,14 @@ dependencies = [
     "pgvector>=0.4.2",
     "pinecone>=8.1.1",
     "pymupdf>=1.27.2.2",
+    "pyyaml>=6.0.3",
     "qdrant-client>=1.17.1",
     "structlog>=25.5.0",
     "tiktoken>=0.12.0",
 ]
 
 [project.scripts]
-tributary = "tributary:main"
+tributary = "tributary.cli:cli"
 
 [build-system]
 requires = ["uv_build>=0.11.3,<0.12.0"]
