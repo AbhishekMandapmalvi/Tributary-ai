@@ -89,3 +89,57 @@ def test_run_full_pipeline(runner, tmp_path):
     assert "Successful: 2" in result.output
     assert "Failed: 0" in result.output
     assert output.exists()
+
+
+def _write_config(tmp_path, cfg):
+    import yaml
+    path = tmp_path / "config.yaml"
+    path.write_text(yaml.dump(cfg))
+    return str(path)
+
+
+def test_validate_valid_config(runner, tmp_path):
+    cfg = {
+        "source": {"type": "local", "params": {"directory": "."}},
+        "chunker": {"strategy": "fixed"},
+        "embedder": {"provider": "openai"},
+        "destination": {"type": "json", "params": {"file_path": "out.jsonl"}},
+    }
+    result = runner.invoke(cli, ["validate", "-c", _write_config(tmp_path, cfg)])
+    assert result.exit_code == 0
+    assert "Config is valid" in result.output
+
+
+def test_validate_missing_section(runner, tmp_path):
+    cfg = {
+        "source": {"type": "local"},
+        "chunker": {"strategy": "fixed"},
+    }
+    result = runner.invoke(cli, ["validate", "-c", _write_config(tmp_path, cfg)])
+    assert result.exit_code != 0
+    assert "Missing required section: 'embedder'" in result.output
+    assert "Missing required section: 'destination'" in result.output
+
+
+def test_validate_missing_key(runner, tmp_path):
+    cfg = {
+        "source": {},
+        "chunker": {"strategy": "fixed"},
+        "embedder": {"provider": "openai"},
+        "destination": {"type": "json"},
+    }
+    result = runner.invoke(cli, ["validate", "-c", _write_config(tmp_path, cfg)])
+    assert result.exit_code != 0
+    assert "missing required key: 'type'" in result.output
+
+
+def test_validate_unknown_registry_value(runner, tmp_path):
+    cfg = {
+        "source": {"type": "ftp"},
+        "chunker": {"strategy": "fixed"},
+        "embedder": {"provider": "openai"},
+        "destination": {"type": "json"},
+    }
+    result = runner.invoke(cli, ["validate", "-c", _write_config(tmp_path, cfg)])
+    assert result.exit_code != 0
+    assert "Unknown source type: 'ftp'" in result.output
