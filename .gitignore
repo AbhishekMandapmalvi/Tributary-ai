@@ -9,7 +9,7 @@ wheels/
 async_learning/
 
 # Virtual environments
-.venv
+.venv/
 venv/
 
 # Test / lint caches
@@ -19,9 +19,32 @@ venv/
 
 # Environment variables
 .env
+.env.*
+
+# Secrets — never commit
+*.pem
+*.key
 
 # Logs
 *.log
+
+# Pipeline state files
+.tributary_state.json
+.tributary_dlq.jsonl
+
+# Output files
+output/
+*.jsonl
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
 # Claude Code session data
 .claude/
