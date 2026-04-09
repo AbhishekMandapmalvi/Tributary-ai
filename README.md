@@ -15,7 +15,21 @@ Tributary handles the plumbing so you can focus on your data. It processes docum
 ## Installation
 
 ```bash
-pip install tributary
+pip install tributary              # Core only (~16 MB)
+pip install tributary[openai]      # + OpenAI embedder
+pip install tributary[pdf,s3]      # + PDF extraction + S3 source
+pip install tributary[all]         # Everything
+```
+
+**Docker:**
+
+```bash
+docker build -t tributary .
+docker run -v ./docs:/app/docs tributary run --config /app/config/pipeline.yaml
+
+# Or with docker-compose
+docker compose up tributary
+docker compose --profile dashboard up   # with live dashboard
 ```
 
 ---

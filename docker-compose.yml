@@ -1,0 +1,25 @@
+services:
+  tributary:
+    build: .
+    volumes:
+      - ./docs:/app/docs        # Mount your documents
+      - ./output:/app/output    # Mount output directory
+      - ./config:/app/config    # Mount config files
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - COHERE_API_KEY=${COHERE_API_KEY:-}
+    command: ["run", "--config", "/app/config/pipeline.yaml"]
+
+  # Optional: run with dashboard
+  dashboard:
+    build: .
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./docs:/app/docs
+      - ./output:/app/output
+      - ./config:/app/config
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    command: ["dashboard", "--config", "/app/config/pipeline.yaml", "--host", "0.0.0.0", "--port", "8765"]
+    profiles: ["dashboard"]
