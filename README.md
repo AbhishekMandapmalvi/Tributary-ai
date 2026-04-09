@@ -1,5 +1,10 @@
 # Tributary
 
+[![PyPI](https://img.shields.io/pypi/v/tributary-ai)](https://pypi.org/project/tributary-ai/)
+[![Tests](https://img.shields.io/badge/tests-317%20passing-brightgreen)]()
+[![Python](https://img.shields.io/pypi/pyversions/tributary-ai)](https://pypi.org/project/tributary-ai/)
+[![License](https://img.shields.io/github/license/AbhishekMandapmalvi/Tributary)](LICENSE)
+
 **A lightweight, high-concurrency data ingestion and chunking pipeline for Retrieval-Augmented Generation (RAG) systems.**
 
 ---
@@ -15,11 +20,15 @@ Tributary handles the plumbing so you can focus on your data. It processes docum
 ## Installation
 
 ```bash
-pip install tributary              # Core only (~16 MB)
-pip install tributary[openai]      # + OpenAI embedder
-pip install tributary[pdf,s3]      # + PDF extraction + S3 source
-pip install tributary[all]         # Everything
+pip install tributary-ai                # Core only (~16 MB)
+pip install tributary-ai[openai]        # + OpenAI embedder
+pip install tributary-ai[pdf,s3]        # + PDF extraction + S3 source
+pip install tributary-ai[all]           # Everything
 ```
+
+Optional dependency groups: `pdf`, `s3`, `gcs`, `azure`, `web`, `sentence`, `token`, `openai`, `cohere`, `pinecone`, `qdrant`, `chroma`, `pgvector`, `dashboard`, `all`.
+
+Import stays `import tributary` regardless of which extras you install.
 
 **Docker:**
 
