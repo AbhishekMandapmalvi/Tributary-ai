@@ -376,6 +376,17 @@ pipeline = Pipeline(..., hooks=hooks)
 
 Multiple hooks per stage chain in registration order. No hooks registered = zero overhead.
 
+**Built-in: Chunk Quality Scoring** — detect and filter garbage chunks before they waste embedding API calls:
+
+```python
+from tributary.pipeline.quality import ChunkQualityScorer
+
+scorer = ChunkQualityScorer(min_score=0.3)
+hooks.after_chunk(scorer.as_chunk_filter())
+```
+
+Scores each chunk 0.0-1.0 based on 5 signals: length, whitespace ratio, alphabetic ratio, repetition, and sentence structure. Chunks below `min_score` are dropped before embedding.
+
 ---
 
 ## Examples
@@ -393,7 +404,7 @@ The [examples/](examples/) directory shows things the CLI can't do:
 ## Tests
 
 ```bash
-pytest -v  # 237 tests passing
+pytest -v  # 253 tests passing
 ```
 
 ---
