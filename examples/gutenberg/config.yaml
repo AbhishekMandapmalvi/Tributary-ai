@@ -1,0 +1,50 @@
+source:
+  type: web
+  params:
+    urls:
+      - https://www.gutenberg.org/cache/epub/1342/pg1342.txt    # Pride and Prejudice
+      - https://www.gutenberg.org/cache/epub/11/pg11.txt         # Alice's Adventures in Wonderland
+      - https://www.gutenberg.org/cache/epub/84/pg84.txt         # Frankenstein
+    max_concurrent: 3
+    timeout: 30
+
+chunker:
+  strategy: recursive
+  params:
+    chunk_size: 512
+    overlap: 64
+    separators: ["\n\n", "\n", ". ", " "]
+
+embedder:
+  provider: openai
+  params:
+    model_name: text-embedding-3-small
+
+destination:
+  type: qdrant
+  params:
+    collection_name: gutenberg
+    url: "http://localhost:6333"
+
+pipeline:
+  max_workers: 3
+  batch_size: 256
+  max_concurrent_embeds: 3
+  checkpoint_interval: 50
+
+  state_store:
+    path: .tributary_state.json
+
+  retry_policy:
+    max_retries: 2
+    base_delay: 1.0
+    max_delay: 10.0
+
+  dead_letter_queue:
+    path: .tributary_dlq.jsonl
+
+  adaptive_batching:
+    initial_batch_size: 64
+    min_batch_size: 8
+    max_batch_size: 256
+    target_latency_ms: 3000

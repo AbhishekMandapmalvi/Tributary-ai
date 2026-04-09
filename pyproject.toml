@@ -16,6 +16,7 @@ dependencies = [
     "lxml>=6.0.2",
     "markdown-it-py>=4.0.0",
     "mdit-plain>=1.0.1",
+    "python-dotenv>=1.0.0",
     "pyyaml>=6.0.3",
     "rich>=14.3.3",
     "structlog>=25.5.0",
