@@ -253,9 +253,10 @@ class Pipeline:
         await metrics.record_stage(file_name, "extraction", (perf_counter() - t0) * 1000)
 
         # Hook: after_extract — can modify extraction or return None to skip
-        extraction = self.hooks.run_after_extract(extraction, file_name)
-        if extraction is None:
+        extraction_or_none = self.hooks.run_after_extract(extraction, file_name)
+        if extraction_or_none is None:
             return 0
+        extraction = extraction_or_none
 
         # Chunk (offloaded to thread — CPU-bound work)
         t0 = perf_counter()

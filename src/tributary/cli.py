@@ -9,8 +9,10 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from rich.panel import Panel
 from tributary.sources import get_source, _REGISTRY as source_reg
 from tributary.chunkers import get_chunker, _REGISTRY as chunker_reg
+from tributary.chunkers.base import BaseChunker
 from tributary.embedders import get_embedder, _REGISTRY as embedder_reg
 from tributary.destinations import get_destination, _REGISTRY as dest_reg
+from tributary.destinations.base import BaseDestination
 from tributary.pipeline.orchestrator import Pipeline
 from tributary.pipeline.events import PipelineEvent
 
@@ -38,7 +40,7 @@ def _build_pipeline(config: dict, on_event=None) -> Pipeline:
             ext: get_chunker(rule["strategy"], **rule.get("params", {}))
             for ext, rule in routing_cfg.items()
         }
-        chunker = ChunkerRouter(default=default_chunker, rules=rules)
+        chunker: BaseChunker = ChunkerRouter(default=default_chunker, rules=rules)
     else:
         chunker = default_chunker
 
@@ -46,7 +48,7 @@ def _build_pipeline(config: dict, on_event=None) -> Pipeline:
     dest_cfg = config["destination"]
     if isinstance(dest_cfg, list):
         destinations = [get_destination(d["type"], **d.get("params", {})) for d in dest_cfg]
-        destination = MultiDestination(destinations)
+        destination: BaseDestination = MultiDestination(destinations)
     else:
         destination = get_destination(dest_cfg["type"], **dest_cfg.get("params", {}))
 

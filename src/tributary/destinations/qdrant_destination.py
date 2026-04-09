@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any
 from tributary.destinations.base import BaseDestination
 from tributary.embedders.models import EmbeddingResult
 from tributary.utils.lazy_import import lazy_import
@@ -9,8 +11,8 @@ class QdrantDestination(BaseDestination):
         self.collection_name = collection_name
         self._url = url
         self._api_key = api_key
-        self.client = None
-        self.models = None
+        self.client: Any = None
+        self.models: Any = None
 
     async def connect(self) -> None:
         if self.client is None:

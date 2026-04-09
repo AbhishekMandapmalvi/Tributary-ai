@@ -3201,6 +3201,7 @@ dev = [
     { name = "requests" },
     { name = "tributary", extra = ["all"] },
     { name = "types-aiofiles" },
+    { name = "types-pyyaml" },
 ]
 
 [package.metadata]
@@ -3245,6 +3246,7 @@ dev = [
     { name = "requests", specifier = ">=2.33.1" },
     { name = "tributary", extras = ["all"] },
     { name = "types-aiofiles", specifier = ">=25.1.0.20260408" },
+    { name = "types-pyyaml", specifier = ">=6.0.12.20260408" },
 ]
 
 [[package]]
@@ -3269,6 +3271,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e0/74/0760ad0b138edba9ba77b968c44d66ab834b7fc5a1d06ec447701851e321/types_aiofiles-25.1.0.20260408.tar.gz", hash = "sha256:7023ff9fac150f7d69c34436daa1e42c8358b5742dc69471053b533894b7d328", size = 14764, upload-time = "2026-04-08T04:33:11.248Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e3/8e/fd2a1385795005cae5037f679c42d673cdb08faea527e36b52003efd059b/types_aiofiles-25.1.0.20260408-py3-none-any.whl", hash = "sha256:45e4c39f49f515c6e147e94c9cba52eeca0b5bf30dd0f0439378d95a5c724292", size = 14339, upload-time = "2026-04-08T04:33:10.077Z" },
+]
+
+[[package]]
+name = "types-pyyaml"
+version = "6.0.12.20260408"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/74/73/b759b1e413c31034cc01ecdfb96b38115d0ab4db55a752a3929f0cd449fd/types_pyyaml-6.0.12.20260408.tar.gz", hash = "sha256:92a73f2b8d7f39ef392a38131f76b970f8c66e4c42b3125ae872b7c93b556307", size = 17735, upload-time = "2026-04-08T04:30:50.974Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1c/f0/c391068b86abb708882c6d75a08cd7d25b2c7227dab527b3a3685a3c635b/types_pyyaml-6.0.12.20260408-py3-none-any.whl", hash = "sha256:fbc42037d12159d9c801ebfcc79ebd28335a7c13b08a4cfbc6916df78fee9384", size = 20339, upload-time = "2026-04-08T04:30:50.113Z" },
 ]
 
 [[package]]

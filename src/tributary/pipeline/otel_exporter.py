@@ -11,6 +11,7 @@ Usage:
     pipeline = Pipeline(..., on_event=exporter.on_event)
 """
 from __future__ import annotations
+from typing import Any
 from tributary.pipeline.events import PipelineEvent
 import structlog
 
@@ -25,9 +26,9 @@ class TributaryMetricsExporter:
 
     def __init__(self, service_name: str = "tributary") -> None:
         self.service_name = service_name
-        self._meter = None
-        self._counters: dict = {}
-        self._histograms: dict = {}
+        self._meter: Any = None
+        self._counters: dict[str, Any] = {}
+        self._histograms: dict[str, Any] = {}
         self._setup()
 
     def _setup(self) -> None:

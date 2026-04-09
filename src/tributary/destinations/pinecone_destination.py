@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any
 from tributary.destinations.base import BaseDestination
 from tributary.embedders.models import EmbeddingResult
 from tributary.utils.lazy_import import lazy_import
@@ -8,8 +10,8 @@ class PineconeDestination(BaseDestination):
     def __init__(self, index_name: str, api_key: str | None = None):
         self._index_name = index_name
         self._api_key = api_key
-        self.client = None
-        self.index = None
+        self.client: Any = None
+        self.index: Any = None
 
     async def connect(self) -> None:
         if self.client is None:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any
 from tributary.destinations.base import BaseDestination
 from tributary.embedders.models import EmbeddingResult
 from dataclasses import asdict
@@ -10,7 +12,7 @@ class JSONDestination(BaseDestination):
     def __init__(self, file_path: str):
         self.file_path = file_path
         self._lock = asyncio.Lock()
-        self._file = None
+        self._file: Any = None
 
     async def connect(self) -> None:
         if self._file is None:

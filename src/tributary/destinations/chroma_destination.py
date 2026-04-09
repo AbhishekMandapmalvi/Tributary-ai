@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any
 from tributary.destinations.base import BaseDestination
 from tributary.embedders.models import EmbeddingResult
 from tributary.utils.lazy_import import lazy_import
@@ -8,8 +10,8 @@ class ChromaDestination(BaseDestination):
     def __init__(self, collection_name: str, persist_path: str | None = None):
         self._collection_name = collection_name
         self._persist_path = persist_path
-        self.client = None
-        self.collection = None
+        self.client: Any = None
+        self.collection: Any = None
 
     async def connect(self) -> None:
         if self.client is None:
