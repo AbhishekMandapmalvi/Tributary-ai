@@ -115,8 +115,8 @@ def test_validate_missing_section(runner, tmp_path):
     }
     result = runner.invoke(cli, ["validate", "-c", _write_config(tmp_path, cfg)])
     assert result.exit_code != 0
-    assert "Missing required section: 'embedder'" in result.output
-    assert "Missing required section: 'destination'" in result.output
+    assert "'embedder' is a required property" in result.output
+    assert "'destination' is a required property" in result.output
 
 
 def test_validate_missing_key(runner, tmp_path):
@@ -128,7 +128,7 @@ def test_validate_missing_key(runner, tmp_path):
     }
     result = runner.invoke(cli, ["validate", "-c", _write_config(tmp_path, cfg)])
     assert result.exit_code != 0
-    assert "missing required key: 'type'" in result.output
+    assert "'type' is a required property" in result.output
 
 
 def test_validate_unknown_registry_value(runner, tmp_path):

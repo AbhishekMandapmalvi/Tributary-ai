@@ -401,10 +401,61 @@ The [examples/](examples/) directory shows things the CLI can't do:
 
 ---
 
+## Webhook Notifications
+
+POST to a URL when the pipeline completes or a document fails:
+
+```yaml
+pipeline:
+  webhook:
+    url: https://example.com/hook
+    events: ["pipeline_completed", "document_failed"]
+    headers:
+      Authorization: "Bearer token"
+    timeout: 10
+```
+
+Failures are logged and swallowed — a webhook timeout never crashes the pipeline.
+
+---
+
+## Config Inheritance
+
+Create a base config and override per environment:
+
+```yaml
+# base.yaml
+source:
+  type: local
+  params: { directory: ./docs }
+chunker:
+  strategy: recursive
+  params: { chunk_size: 500 }
+embedder:
+  provider: openai
+destination:
+  type: json
+  params: { file_path: ./output.jsonl }
+```
+
+```yaml
+# production.yaml
+extends: base.yaml
+source:
+  params: { directory: /data/production }
+destination:
+  type: qdrant
+  params: { collection_name: prod, url: "http://qdrant:6333" }
+```
+
+Deep merge: nested dicts merge recursively, scalars and lists are replaced. Supports chaining (A extends B extends C).
+
+---
+
 ## Tests
 
 ```bash
-pytest -v  # 253 tests passing
+pytest -v  # 317 tests passing
 ```
 
 ---

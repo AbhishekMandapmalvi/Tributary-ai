@@ -3,6 +3,7 @@ import os
 import click
 import yaml
 from rich.console import Console
+from tributary.pipeline.config import load_config
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 from rich.panel import Panel
@@ -64,6 +65,28 @@ def _build_pipeline(config: dict, on_event=None) -> Pipeline:
     dlq_cfg = pipeline_params.pop("dead_letter_queue", None)
     dead_letter_queue = DeadLetterQueue(**dlq_cfg) if dlq_cfg else None
 
+    # Webhook notifier — compose with existing on_event if present
+    webhook_cfg = pipeline_params.pop("webhook", None)
+    if webhook_cfg:
+        from tributary.pipeline.webhook import WebhookNotifier
+
+        notifier = WebhookNotifier(
+            url=webhook_cfg["url"],
+            headers=webhook_cfg.get("headers"),
+            event_types=webhook_cfg.get("events"),
+            timeout=webhook_cfg.get("timeout", 5.0),
+        )
+        if on_event is not None:
+            original_on_event = on_event
+
+            def composed_on_event(event):
+                original_on_event(event)
+                notifier.on_event(event)
+
+            on_event = composed_on_event
+        else:
+            on_event = notifier.on_event
+
     return Pipeline(
         source=source,
         chunker=chunker,
@@ -92,6 +115,12 @@ def _validate_config(cfg: dict) -> list[str]:
 
     if not isinstance(cfg, dict):
         return ["Config file is not a valid YAML mapping."]
+
+    # FR-SCHEMA: Run JSON Schema validation first
+    from tributary.pipeline.schema import validate_schema
+    errors.extend(validate_schema(cfg))
+    if errors:
+        return errors  # don't bother with registry checks if schema is invalid
 
     for section, required_keys in REQUIRED_SECTIONS.items():
         if section not in cfg:
@@ -212,8 +241,7 @@ def cli():
 @click.option("--config", "-c", required=True, type=click.Path(exists=True), help="Path to YAML config file.")
 def run(config):
     """Run the ingestion pipeline from a YAML config file."""
-    with open(config) as f:
-        cfg = yaml.safe_load(f)
+    cfg = load_config(config)
 
     errors = _validate_config(cfg)
     if errors:
@@ -258,8 +286,7 @@ def run(config):
 @click.option("--config", "-c", required=True, type=click.Path(exists=True), help="Path to YAML config file.")
 def validate(config):
     """Validate a config file without running the pipeline."""
-    with open(config) as f:
-        cfg = yaml.safe_load(f)
+    cfg = load_config(config)
 
     errors = _validate_config(cfg)
 
@@ -276,8 +303,7 @@ def validate(config):
 @click.option("--config", "-c", required=True, type=click.Path(exists=True), help="Path to YAML config file.")
 def inspect(config):
     """Show what a config would do without running the pipeline (dry run)."""
-    with open(config) as f:
-        cfg = yaml.safe_load(f)
+    cfg = load_config(config)
 
     errors = _validate_config(cfg)
     if errors:
@@ -545,8 +571,7 @@ def dashboard(config, port, host):
     """Run the pipeline with a real-time web dashboard."""
     from tributary.dashboard.server import DashboardServer
 
-    with open(config) as f:
-        cfg = yaml.safe_load(f)
+    cfg = load_config(config)
 
     errors = _validate_config(cfg)
     if errors:
