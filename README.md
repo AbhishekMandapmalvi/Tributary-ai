@@ -327,6 +327,43 @@ Opens a web dashboard at `http://localhost:8765` showing live document count, su
 
 ---
 
+## Middleware / Hooks
+
+Inject custom logic between pipeline stages without modifying the orchestrator:
+
+```python
+from tributary.pipeline.hooks import PipelineHooks
+
+hooks = PipelineHooks()
+
+@hooks.after_extract
+def skip_tiny_documents(extraction, source_name):
+    if extraction.char_count < 100:
+        return None  # skip this document
+    return extraction
+
+@hooks.after_chunk
+def filter_short_chunks(chunks, source_name):
+    return [c for c in chunks if c.char_count > 50]
+
+@hooks.before_embed
+def normalize_text(texts, source_name):
+    return [t.lower().strip() for t in texts]
+
+pipeline = Pipeline(..., hooks=hooks)
+```
+
+| Hook | Receives | Can |
+|------|----------|-----|
+| `after_extract` | `ExtractionResult` | Modify text, skip document (return `None`) |
+| `after_chunk` | `list[ChunkResult]` | Filter, reorder, modify chunks |
+| `before_embed` | `list[str]` | Transform text before embedding |
+| `after_embed` | `list[EmbeddingResult]` | Filter embeddings before storage |
+
+Multiple hooks per stage chain in registration order. No hooks registered = zero overhead.
+
+---
+
 ## Examples
 
 The [examples/](examples/) directory shows things the CLI can't do:
@@ -342,7 +379,7 @@ The [examples/](examples/) directory shows things the CLI can't do:
 ## Tests
 
 ```bash
-pytest -v  # 226 tests passing
+pytest -v  # 237 tests passing
 ```
 
 ---
@@ -360,3 +397,4 @@ pytest -v  # 226 tests passing
 | **Feedback Loop** | `AdaptiveBatcher` | Auto-tune batch size from embedding API response times |
 | **Composite** | `MultiDestination` | Fan-out to multiple destinations as one |
 | **Router** | `ChunkerRouter` | Route documents to different chunkers by file type |
+| **Interceptor** | `PipelineHooks` | Inject custom logic between stages via decorator chain |

@@ -11,6 +11,7 @@ from tributary.pipeline.state_store import StateStore
 from tributary.pipeline.retry import RetryPolicy, DeadLetterQueue
 from tributary.pipeline.correlation import new_correlation_id
 from tributary.pipeline.adaptive_batcher import AdaptiveBatcher
+from tributary.pipeline.hooks import PipelineHooks
 from collections.abc import Callable
 from time import perf_counter
 import asyncio
@@ -40,6 +41,7 @@ class Pipeline:
         dead_letter_queue: DeadLetterQueue | None = None,
         checkpoint_interval: int = 10,
         adaptive_batcher: AdaptiveBatcher | None = None,
+        hooks: PipelineHooks | None = None,
     ):
         self.source = source
         self.extractor = extractor
@@ -56,6 +58,7 @@ class Pipeline:
         self.dlq = dead_letter_queue
         self.checkpoint_interval = checkpoint_interval
         self.adaptive_batcher = adaptive_batcher
+        self.hooks = hooks or PipelineHooks()
         self._shutdown_event = asyncio.Event()
         self._docs_since_checkpoint = 0
 
@@ -249,10 +252,18 @@ class Pipeline:
         extraction = await extractor.extract(source_result.raw_bytes, file_name)  # type: ignore[attr-defined]
         await metrics.record_stage(file_name, "extraction", (perf_counter() - t0) * 1000)
 
+        # Hook: after_extract — can modify extraction or return None to skip
+        extraction = self.hooks.run_after_extract(extraction, file_name)
+        if extraction is None:
+            return 0
+
         # Chunk (offloaded to thread — CPU-bound work)
         t0 = perf_counter()
         chunks = await asyncio.to_thread(self.chunker.chunk, extraction.text, file_name)
         await metrics.record_stage(file_name, "chunking", (perf_counter() - t0) * 1000)
+
+        # Hook: after_chunk — can filter or modify chunks
+        chunks = self.hooks.run_after_chunk(chunks, file_name)
         await metrics.record_chunks(file_name, len(chunks))
 
         if not chunks:
@@ -275,6 +286,11 @@ class Pipeline:
             async with embed_sem:
                 texts = [c.text for c in batch]
 
+                # Hook: before_embed — can transform texts
+                texts = self.hooks.run_before_embed(texts, file_name)
+                if not texts:
+                    return
+
                 t1 = perf_counter()
                 try:
                     embeddings = await self.embedder.embed_chunks(texts, file_name)
@@ -287,6 +303,11 @@ class Pipeline:
                     if self.adaptive_batcher:
                         await self.adaptive_batcher.record_error()
                     raise
+
+                # Hook: after_embed — can filter embeddings before storage
+                embeddings = self.hooks.run_after_embed(embeddings, file_name)
+                if not embeddings:
+                    return
 
                 t1 = perf_counter()
                 await self.destination.store(embeddings)
