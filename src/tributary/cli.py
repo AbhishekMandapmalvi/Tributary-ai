@@ -2,7 +2,10 @@ import asyncio
 import os
 import click
 import yaml
+from dotenv import load_dotenv
 from rich.console import Console
+
+load_dotenv()
 from tributary.pipeline.config import load_config
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn

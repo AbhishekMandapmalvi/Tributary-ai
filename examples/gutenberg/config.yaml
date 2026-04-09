@@ -1,0 +1,49 @@
+source:
+  type: web
+  params:
+    urls:
+      - https://www.gutenberg.org/cache/epub/1342/pg1342.txt    # Pride and Prejudice
+      - https://www.gutenberg.org/cache/epub/11/pg11.txt         # Alice's Adventures in Wonderland
+      - https://www.gutenberg.org/cache/epub/84/pg84.txt         # Frankenstein
+    max_concurrent: 1
+    timeout: 30
+
+chunker:
+  strategy: recursive
+  params:
+    chunk_size: 512
+    overlap: 64
+    separators: ["\n\n", "\n", ". ", " "]
+
+embedder:
+  provider: openai
+  params:
+    model_name: text-embedding-3-small
+
+destination:
+  type: qdrant
+  params:
+    collection_name: gutenberg
+    url: "http://localhost:6333"
+
+pipeline:
+  max_workers: 1              # Process one document at a time
+  max_concurrent_embeds: 1    # One embedding API call at a time
+  checkpoint_interval: 20
+
+  state_store:
+    path: .tributary_state.json
+
+  retry_policy:
+    max_retries: 5            # More retries for rate limits
+    base_delay: 15.0          # Wait 15s before first retry
+    max_delay: 60.0           # Cap at 60s
+
+  dead_letter_queue:
+    path: .tributary_dlq.jsonl
+
+  adaptive_batching:
+    initial_batch_size: 8     # Start small
+    min_batch_size: 4         # Don't go below 4
+    max_batch_size: 16        # Cap low to avoid TPM limit
+    target_latency_ms: 5000   # Relaxed target
