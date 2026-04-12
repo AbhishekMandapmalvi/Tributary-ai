@@ -106,6 +106,94 @@ def _build_pipeline(config: dict, on_event=None) -> Pipeline:
     )
 
 
+def _build_distributed_pipeline(config: dict):
+    """Build a DistributedPipeline from a YAML config that includes a
+    `distributed` section with `document_queue` and `chunk_queue` entries.
+    """
+    from tributary.chunkers.router import ChunkerRouter
+    from tributary.destinations.multi_destination import MultiDestination
+    from tributary.extractors import (
+        CSVExtractor,
+        HTMLExtractor,
+        JSONExtractor,
+        MarkdownExtractor,
+        PDFExtractor,
+        TextExtractor,
+    )
+    from tributary.workers import DistributedPipeline, get_queue
+
+    # Reuse existing component builders
+    source = get_source(config["source"]["type"], **config["source"].get("params", {}))
+    embedder = get_embedder(
+        config["embedder"]["provider"], **config["embedder"].get("params", {})
+    )
+
+    chunker_cfg = config["chunker"]
+    default_chunker = get_chunker(
+        chunker_cfg["strategy"], **chunker_cfg.get("params", {})
+    )
+    routing_cfg = chunker_cfg.get("routing")
+    if routing_cfg:
+        rules = {
+            ext: get_chunker(rule["strategy"], **rule.get("params", {}))
+            for ext, rule in routing_cfg.items()
+        }
+        chunker: BaseChunker = ChunkerRouter(default=default_chunker, rules=rules)
+    else:
+        chunker = default_chunker
+
+    dest_cfg = config["destination"]
+    if isinstance(dest_cfg, list):
+        destinations = [
+            get_destination(d["type"], **d.get("params", {})) for d in dest_cfg
+        ]
+        destination: BaseDestination = MultiDestination(destinations)
+    else:
+        destination = get_destination(
+            dest_cfg["type"], **dest_cfg.get("params", {})
+        )
+
+    distributed_cfg = config["distributed"]
+
+    # Extractor — if an explicit extractor is configured, use that single
+    # instance for every message. If omitted, ExtractionWorker auto-detects
+    # the right extractor per file via get_extractor_for_extension(), matching
+    # the single-process Pipeline's behavior.
+    extractor_registry = {
+        "text": TextExtractor,
+        "markdown": MarkdownExtractor,
+        "html": HTMLExtractor,
+        "csv": CSVExtractor,
+        "json": JSONExtractor,
+        "pdf": PDFExtractor,
+    }
+    extractor_cfg = distributed_cfg.get("extractor")
+    if extractor_cfg is not None:
+        extractor_cls = extractor_registry[extractor_cfg["type"]]
+        extractor = extractor_cls(**extractor_cfg.get("params", {}))
+    else:
+        extractor = None  # Auto-detect per file
+
+    # Queues via the factory — one per stage
+    doc_q_cfg = distributed_cfg["document_queue"]
+    chunk_q_cfg = distributed_cfg["chunk_queue"]
+    document_queue = get_queue(doc_q_cfg["backend"], **doc_q_cfg.get("params", {}))
+    chunk_queue = get_queue(chunk_q_cfg["backend"], **chunk_q_cfg.get("params", {}))
+
+    return DistributedPipeline(
+        source=source,
+        document_queue=document_queue,
+        chunk_queue=chunk_queue,
+        extractor=extractor,
+        chunker=chunker,
+        embedder=embedder,
+        destination=destination,
+        n_extraction_workers=distributed_cfg.get("n_extraction_workers", 2),
+        n_embedding_workers=distributed_cfg.get("n_embedding_workers", 2),
+        poll_timeout=distributed_cfg.get("poll_timeout", 1.0),
+    )
+
+
 REQUIRED_SECTIONS = {
     "source": ["type"],
     "chunker": ["strategy"],
@@ -245,7 +333,12 @@ def cli():
 @cli.command()
 @click.option("--config", "-c", required=True, type=click.Path(exists=True), help="Path to YAML config file.")
 def run(config):
-    """Run the ingestion pipeline from a YAML config file."""
+    """Run the ingestion pipeline from a YAML config file.
+
+    If the config contains a `distributed` section, launches
+    DistributedPipeline with the configured queue backends. Otherwise runs
+    the single-process Pipeline.
+    """
     cfg = load_config(config)
 
     errors = _validate_config(cfg)
@@ -255,6 +348,26 @@ def run(config):
             console.print(f"  [red]-[/red] {error}")
         raise SystemExit(1)
 
+    # Distributed mode — workers + message queue, no progress bar (workers
+    # can be spread across machines so the CLI doesn't see all events).
+    if "distributed" in cfg:
+        backend = cfg["distributed"]["document_queue"]["backend"]
+        console.print(
+            f"[cyan]Running in distributed mode[/cyan] "
+            f"(backend: [bold]{backend}[/bold])"
+        )
+        console.print(
+            "Press [bold]Ctrl+C[/bold] to trigger a graceful drain."
+        )
+        pipeline = _build_distributed_pipeline(cfg)
+        try:
+            asyncio.run(pipeline.run())
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Shutdown signal received.[/yellow]")
+        console.print("[green]Distributed pipeline finished.[/green]")
+        return
+
+    # Single-process mode (existing path)
     docs_done = {"n": 0}
 
     with Progress(

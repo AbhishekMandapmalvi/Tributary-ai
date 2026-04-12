@@ -1,0 +1,50 @@
+# Distributed pipeline configuration — YAML-driven setup.
+#
+# To run: tributary run --config examples/distributed/config.yaml
+# (Requires Redis running locally — see redis_example.py for Docker command.)
+#
+# To use a different backend, swap `document_queue.backend` and `chunk_queue.backend`
+# to one of: sqs, rabbitmq, pubsub, servicebus, kafka — and adjust `params`
+# to match. See each *_example.py for the connection-parameter shape per backend.
+
+source:
+  type: local
+  params:
+    directory: ./docs
+    extensions: [".txt", ".md", ".pdf"]
+
+chunker:
+  strategy: recursive
+  params:
+    chunk_size: 500
+    overlap: 50
+
+embedder:
+  provider: openai
+  # OpenAIEmbedder reads OPENAI_API_KEY from the environment by default.
+
+destination:
+  type: json
+  params:
+    file_path: ./output.jsonl
+
+distributed:
+  extractor:
+    type: text
+  document_queue:
+    backend: redis
+    params:
+      url: redis://localhost:6379
+      queue_name: tributary:docs
+      max_retries: 3
+      inflight_timeout: 300.0
+  chunk_queue:
+    backend: redis
+    params:
+      url: redis://localhost:6379
+      queue_name: tributary:chunks
+      max_retries: 3
+      inflight_timeout: 300.0
+  n_extraction_workers: 4
+  n_embedding_workers: 2
+  poll_timeout: 1.0

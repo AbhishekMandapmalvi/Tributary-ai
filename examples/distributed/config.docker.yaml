@@ -1,0 +1,49 @@
+# Distributed pipeline config for Docker Compose.
+#
+# Differs from config.yaml only in the Redis host — inside Compose, the
+# `redis` service is reachable by its service name rather than localhost.
+# To run: docker compose --profile distributed up
+
+source:
+  type: local
+  params:
+    directory: /app/docs
+    extensions: [".txt", ".md"]
+
+chunker:
+  strategy: fixed
+  params:
+    chunk_size: 500
+    overlap: 50
+
+embedder:
+  provider: openai
+  # OpenAIEmbedder reads OPENAI_API_KEY from the environment by default —
+  # no api_key field needed here. The Compose worker service passes the
+  # host env var through.
+
+destination:
+  type: json
+  params:
+    file_path: /app/output/output.jsonl
+
+distributed:
+  extractor:
+    type: text
+  document_queue:
+    backend: redis
+    params:
+      url: redis://redis:6379
+      queue_name: tributary:docs
+      max_retries: 3
+      inflight_timeout: 300.0
+  chunk_queue:
+    backend: redis
+    params:
+      url: redis://redis:6379
+      queue_name: tributary:chunks
+      max_retries: 3
+      inflight_timeout: 300.0
+  n_extraction_workers: 4
+  n_embedding_workers: 2
+  poll_timeout: 1.0

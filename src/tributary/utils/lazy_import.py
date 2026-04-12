@@ -28,6 +28,12 @@ _IMPORT_TO_PIP = {
     "google.cloud.aiplatform": "google-cloud-aiplatform",
     "vertexai": "google-cloud-aiplatform",
     "voyageai": "voyageai",
+    "aio_pika": "aio-pika",
+    "aioboto3": "aioboto3",
+    "gcloud.aio.pubsub": "gcloud-aio-pubsub",
+    "azure.servicebus": "azure-servicebus",
+    "azure.servicebus.aio": "azure-servicebus",
+    "aiokafka": "aiokafka",
 }
 
 _auto_install = os.environ.get("TRIBUTARY_AUTO_INSTALL", "").lower() in ("1", "true", "yes")
