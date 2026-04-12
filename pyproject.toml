@@ -123,8 +123,9 @@ branch = "master"
 changelog_file = "CHANGELOG.md"
 build_command = "uv build"
 commit_message = "chore(release): v{version} [skip ci]"
-commit_parser = "angular"
-major_on_zero = false  # 0.x.y → 0.(x+1).0 on feat, not 1.0.0
+commit_parser = "conventional"  # v10: "angular" is deprecated, use "conventional"
+allow_zero_version = true        # keep versions in the 0.x.y range
+major_on_zero = false            # breaking changes on 0.x bump minor, not to 1.0.0
 
 [tool.semantic_release.commit_parser_options]
 allowed_tags = [
@@ -133,6 +134,8 @@ allowed_tags = [
 ]
 minor_tags = ["feat"]
 patch_tags = ["fix", "perf"]
+parse_squash_commits = true
+ignore_merge_commits = true
 
 [tool.semantic_release.changelog]
 template_dir = "templates"
