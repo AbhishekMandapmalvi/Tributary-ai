@@ -1,17 +1,24 @@
 import asyncio
 import logging
 from tributary.workers.queue import BaseQueue
-from tributary.extractors import BaseExtractor
+from tributary.extractors import BaseExtractor, get_extractor_for_extension
 from tributary.chunkers import BaseChunker
 from tributary.workers.messages import ChunkMessage
 
 class ExtractionWorker:
     def __init__(self, documents_queue: BaseQueue,
                  chunks_queue: BaseQueue,
-                 extractor: BaseExtractor,
+                 extractor: BaseExtractor | None,
                  chunker: BaseChunker,
                  stop_event: asyncio.Event,
                  poll_timeout: int = 5):
+        """Extraction worker for the distributed pipeline.
+
+        If ``extractor`` is ``None``, the extractor is auto-detected per
+        file via ``get_extractor_for_extension(message.source_path)``. This
+        matches the single-process Pipeline's behavior — a single worker pool
+        can handle mixed file types without being pinned to one extractor.
+        """
         self.documents_queue = documents_queue
         self.chunks_queue = chunks_queue
         self.extractor = extractor
@@ -35,7 +42,8 @@ class ExtractionWorker:
 
     async def _process(self, message):
         self.logger.debug(f"Processing message: {message}")
-        result = await self.extractor.extract(message.source_path)
+        extractor = self.extractor or get_extractor_for_extension(message.source_path)
+        result = await extractor.extract(message.source_path)
         if result is not None:
             chunks = self.chunker.chunk(result)
             for i, chunk in enumerate(chunks):

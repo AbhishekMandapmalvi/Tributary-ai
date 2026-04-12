@@ -122,6 +122,14 @@ asyncio.run(main())
 
 Launch the same script on multiple machines pointing at the same Redis instance — each machine becomes another pool of workers drawing from the shared queues. `SIGINT`/`SIGTERM` triggers a clean drain: the producer stops publishing, workers finish their in-flight messages, and the process exits.
 
+### Three ways to launch
+
+| Way | Best for | How |
+|-----|----------|-----|
+| Python script | Full programmatic control, custom embedders, event callbacks | Instantiate `DistributedPipeline` directly (see snippet above) |
+| CLI + YAML config | Ops-friendly, no Python required, config-as-code | `tributary run --config pipeline.yaml` — if the config has a `distributed` block, the CLI launches distributed mode automatically |
+| Docker Compose | Zero-setup local dev, reproducible infra | `docker compose --profile distributed up --scale worker=4` — brings up Redis + N worker containers |
+
 ### Configuring distributed mode from YAML
 
 If you'd rather drive the pipeline from a config file, add a `distributed` block to your `tributary.yaml` and the queues are built for you:
@@ -162,12 +170,34 @@ distributed:
 
 Swap `backend: redis` for any of the six supported backends — schema validation catches typos and unknown backends before the pipeline starts. Under the hood, `get_queue(backend, **params)` lazily imports only the driver you asked for, so a Redis-only deployment doesn't need the SQS or Kafka libraries installed.
 
+```bash
+tributary run --config examples/distributed/config.yaml
+```
+
+The CLI detects the `distributed` block and wires up `DistributedPipeline` automatically. No Python required.
+
 ```python
 # Building a queue from config by hand
 from tributary.workers import get_queue
 
 queue = get_queue("redis", url="redis://localhost:6379", queue_name="docs")
 ```
+
+### Docker Compose — zero-setup local cluster
+
+```bash
+# Bring up Redis + 1 worker
+docker compose --profile distributed up
+
+# Scale to N worker containers (each runs the full pipeline — producer,
+# extraction workers, and embedding workers — drawing from the shared
+# Redis queues)
+docker compose --profile distributed up --scale worker=5
+```
+
+The `distributed` profile starts a `redis:7-alpine` container and N `worker` containers built from the repo Dockerfile. Each worker runs `tributary run --config /app/config/config.docker.yaml` — the same CLI path as the YAML example, pointed at a Compose-specific config that uses `redis://redis:6379` (Compose service name) as the broker URL.
+
+Mount your documents into `./docs` and collect results from `./output`. Press `Ctrl+C` to trigger a graceful drain — the producer stops publishing, workers finish their in-flight messages, then exit.
 
 ### Queue backends
 

@@ -21,8 +21,7 @@ chunker:
 
 embedder:
   provider: openai
-  params:
-    api_key: ${OPENAI_API_KEY}
+  # OpenAIEmbedder reads OPENAI_API_KEY from the environment by default.
 
 destination:
   type: json
@@ -30,6 +29,8 @@ destination:
     file_path: ./output.jsonl
 
 distributed:
+  extractor:
+    type: text
   document_queue:
     backend: redis
     params:

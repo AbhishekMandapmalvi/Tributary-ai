@@ -90,6 +90,17 @@ CONFIG_SCHEMA: dict = {
             "properties": {
                 "document_queue": _QUEUE_OBJECT,
                 "chunk_queue": _QUEUE_OBJECT,
+                "extractor": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": ["text", "markdown", "html", "csv", "json", "pdf"],
+                        },
+                        "params": {"type": "object"},
+                    },
+                    "required": ["type"],
+                },
                 "n_extraction_workers": {"type": "integer", "minimum": 1},
                 "n_embedding_workers": {"type": "integer", "minimum": 1},
                 "poll_timeout": {"type": "number", "minimum": 0},
@@ -109,8 +120,7 @@ def validate_schema(config: dict) -> list[str]:
     An empty list means the config is valid.
     """
     try:
-        from jsonschema import validate, ValidationError  # noqa: F811
-        from jsonschema.exceptions import best_match
+        from jsonschema import validate, ValidationError
     except ImportError:
         return ["Install jsonschema: pip install jsonschema"]
 

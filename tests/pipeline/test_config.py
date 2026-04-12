@@ -155,3 +155,104 @@ def test_extends_key_not_in_output(tmp_path):
 
     result = load_config(str(child_file))
     assert "extends" not in result
+
+
+# --- 7. Env-var substitution (${VAR} and ${VAR:-default}) ---
+
+class TestEnvVarSubstitution:
+    def test_simple_substitution(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("REDIS_URL", "redis://example.com:6379")
+        cfg_file = tmp_path / "config.yaml"
+        _write_yaml(cfg_file, {
+            "queue": {"backend": "redis", "params": {"url": "${REDIS_URL}"}},
+        })
+        result = load_config(str(cfg_file))
+        assert result["queue"]["params"]["url"] == "redis://example.com:6379"
+
+    def test_substitution_with_default_used(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("REDIS_URL", raising=False)
+        cfg_file = tmp_path / "config.yaml"
+        _write_yaml(cfg_file, {
+            "queue": {"params": {"url": "${REDIS_URL:-redis://localhost:6379}"}},
+        })
+        result = load_config(str(cfg_file))
+        assert result["queue"]["params"]["url"] == "redis://localhost:6379"
+
+    def test_substitution_with_default_overridden_by_env(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("REDIS_URL", "redis://from-env:6379")
+        cfg_file = tmp_path / "config.yaml"
+        _write_yaml(cfg_file, {
+            "queue": {"params": {"url": "${REDIS_URL:-redis://localhost:6379}"}},
+        })
+        result = load_config(str(cfg_file))
+        assert result["queue"]["params"]["url"] == "redis://from-env:6379"
+
+    def test_substitution_inside_string(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HOST", "db.internal")
+        cfg_file = tmp_path / "config.yaml"
+        _write_yaml(cfg_file, {
+            "dsn": "postgres://user@${HOST}:5432/mydb",
+        })
+        result = load_config(str(cfg_file))
+        assert result["dsn"] == "postgres://user@db.internal:5432/mydb"
+
+    def test_unset_without_default_left_literal(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("NOT_SET_ANYWHERE", raising=False)
+        cfg_file = tmp_path / "config.yaml"
+        _write_yaml(cfg_file, {"value": "${NOT_SET_ANYWHERE}"})
+        result = load_config(str(cfg_file))
+        # Leaves the placeholder so schema validation surfaces it
+        assert result["value"] == "${NOT_SET_ANYWHERE}"
+
+    def test_substitution_in_nested_dict(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("API_KEY", "sk-secret")
+        cfg_file = tmp_path / "config.yaml"
+        _write_yaml(cfg_file, {
+            "embedder": {"provider": "openai", "params": {"api_key": "${API_KEY}"}},
+        })
+        result = load_config(str(cfg_file))
+        assert result["embedder"]["params"]["api_key"] == "sk-secret"
+
+    def test_substitution_in_list(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("EXT1", ".txt")
+        monkeypatch.setenv("EXT2", ".md")
+        cfg_file = tmp_path / "config.yaml"
+        _write_yaml(cfg_file, {"extensions": ["${EXT1}", "${EXT2}"]})
+        result = load_config(str(cfg_file))
+        assert result["extensions"] == [".txt", ".md"]
+
+    def test_non_string_scalars_untouched(self, tmp_path, monkeypatch):
+        cfg_file = tmp_path / "config.yaml"
+        _write_yaml(cfg_file, {
+            "max_workers": 4,
+            "poll_timeout": 1.5,
+            "enabled": True,
+            "labels": None,
+        })
+        result = load_config(str(cfg_file))
+        assert result == {
+            "max_workers": 4,
+            "poll_timeout": 1.5,
+            "enabled": True,
+            "labels": None,
+        }
+
+    def test_substitution_applied_after_extends(self, tmp_path, monkeypatch):
+        """Env vars in base config should also be expanded."""
+        monkeypatch.setenv("BASE_URL", "https://base.example.com")
+        base_file = tmp_path / "base.yaml"
+        _write_yaml(base_file, {"url": "${BASE_URL}", "keep": "value"})
+        child_file = tmp_path / "child.yaml"
+        _write_yaml(child_file, {"extends": "base.yaml"})
+
+        result = load_config(str(child_file))
+        assert result["url"] == "https://base.example.com"
+        assert result["keep"] == "value"
+
+    def test_multiple_vars_in_one_string(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("USER", "admin")
+        monkeypatch.setenv("PASS", "s3cret")
+        cfg_file = tmp_path / "config.yaml"
+        _write_yaml(cfg_file, {"url": "https://${USER}:${PASS}@host/path"})
+        result = load_config(str(cfg_file))
+        assert result["url"] == "https://admin:s3cret@host/path"

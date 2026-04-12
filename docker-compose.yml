@@ -23,3 +23,33 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     command: ["dashboard", "--config", "/app/config/pipeline.yaml", "--host", "0.0.0.0", "--port", "8765"]
     profiles: ["dashboard"]
+
+  # --------------------------------------------------------------------------
+  # Distributed mode — Redis broker + scalable worker pool
+  # Bring up with: docker compose --profile distributed up
+  # Scale workers: docker compose --profile distributed up --scale worker=5
+  # --------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    profiles: ["distributed"]
+
+  worker:
+    build: .
+    volumes:
+      - ./docs:/app/docs
+      - ./output:/app/output
+      - ./examples/distributed:/app/config
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    command: ["run", "--config", "/app/config/config.docker.yaml"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles: ["distributed"]
