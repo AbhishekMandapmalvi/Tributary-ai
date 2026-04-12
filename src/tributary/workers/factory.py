@@ -41,13 +41,20 @@ def _build_sqs(
     max_retries: int = 5,
     **client_kwargs: Any,
 ) -> BaseQueue:
-    import aioboto3  # type: ignore[import-not-found]
+    # aiobotocore (not aioboto3) — same library the S3 source uses, avoiding
+    # a dependency split between those two packages.
+    import aiobotocore.session  # type: ignore[import-not-found]
+
     from tributary.workers.backends.sqs_queue import SQSQueue
 
-    session = aioboto3.Session()
-    client_ctx = session.client("sqs", region_name=region_name, **client_kwargs)
-    # client_ctx is an async context manager; caller must manage lifecycle.
-    # For factory use, we resolve it eagerly via __aenter__ on first use.
+    session = aiobotocore.session.get_session()
+    # Note: create_client returns an async context manager. The caller must
+    # manage the lifecycle via `async with session.create_client(...) as client`.
+    # For factory use, the returned SQSQueue owns the unopened context — the
+    # caller is expected to enter it before use. See examples/distributed/sqs_example.py.
+    client_ctx = session.create_client(
+        "sqs", region_name=region_name, **client_kwargs
+    )
     return SQSQueue(client_ctx, queue_url=queue_url, max_retries=max_retries)
 
 

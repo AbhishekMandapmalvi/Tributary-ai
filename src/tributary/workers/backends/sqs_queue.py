@@ -1,8 +1,6 @@
-from tributary.utils.lazy_import import lazy_import
 from tributary.workers.queue import BaseQueue
 from tributary.workers.messages import BaseMessage
 
-aioboto3 = lazy_import("aioboto3")
 
 class SQSQueue(BaseQueue):
     def __init__(self, sqs_client, queue_url: str, max_retries: int = 5):

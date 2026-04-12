@@ -19,7 +19,7 @@ queue). This example uses per-message nack → change_message_visibility.
 import asyncio
 import os
 
-import aioboto3
+import aiobotocore.session
 
 from tributary.chunkers.fixed_chunker import FixedChunker
 from tributary.destinations.json_destination import JSONDestination
@@ -35,8 +35,8 @@ async def main():
     chunk_queue_url = os.environ["CHUNK_QUEUE_URL"]
     region = os.getenv("AWS_REGION", "us-east-1")
 
-    session = aioboto3.Session()
-    async with session.client("sqs", region_name=region) as sqs_client:
+    session = aiobotocore.session.get_session()
+    async with session.create_client("sqs", region_name=region) as sqs_client:
         document_queue = SQSQueue(
             sqs_client, queue_url=document_queue_url, max_retries=3
         )

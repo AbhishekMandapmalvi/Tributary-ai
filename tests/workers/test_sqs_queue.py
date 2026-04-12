@@ -1,11 +1,6 @@
-import sys
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-
-# Patch lazy_import before SQSQueue module loads aioboto3
-with patch("tributary.utils.lazy_import.lazy_import", return_value=MagicMock()):
-    from tributary.workers.backends.sqs_queue import SQSQueue
-
+from unittest.mock import AsyncMock
+from tributary.workers.backends.sqs_queue import SQSQueue
 from tributary.workers.messages import BaseMessage, DocumentMessage
 
 
