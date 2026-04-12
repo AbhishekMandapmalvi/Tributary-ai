@@ -1,0 +1,43 @@
+<svg width="680" viewBox="0 0 680 400" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+  <rect width="680" height="400" fill="#ffffff"/>
+
+  <!-- Pending list -->
+  <rect x="40" y="40" width="280" height="140" rx="10" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.5"/>
+  <text font-size="14" font-weight="500" fill="#085041" x="60" y="66" dominant-baseline="central">Pending list</text>
+  <text font-size="12" fill="#0F6E56" x="60" y="86" dominant-baseline="central">myqueue:pending</text>
+  <rect x="60" y="100" width="240" height="28" rx="4" fill="#9FE1CB" stroke="#1D9E75" stroke-width="0.5"/>
+  <text font-size="11" fill="#085041" x="180" y="114" text-anchor="middle" dominant-baseline="central">{"__type__":"DocumentMessage",...}</text>
+  <rect x="60" y="134" width="240" height="28" rx="4" fill="#9FE1CB" stroke="#1D9E75" stroke-width="0.5"/>
+  <text font-size="11" fill="#085041" x="180" y="148" text-anchor="middle" dominant-baseline="central">{"__type__":"DocumentMessage",...}</text>
+  <text font-size="11" fill="#0F6E56" x="180" y="172" text-anchor="middle" dominant-baseline="central">rpush adds here · blpop removes here</text>
+
+  <!-- Inflight sorted set -->
+  <rect x="360" y="40" width="280" height="140" rx="10" fill="#FAECE7" stroke="#D85A30" stroke-width="0.5"/>
+  <text font-size="14" font-weight="500" fill="#712B13" x="380" y="66" dominant-baseline="central">Inflight sorted set</text>
+  <text font-size="12" fill="#993C1D" x="380" y="86" dominant-baseline="central">myqueue:inflight</text>
+  <rect x="380" y="100" width="240" height="28" rx="4" fill="#F5C4B3" stroke="#D85A30" stroke-width="0.5"/>
+  <text font-size="11" fill="#712B13" x="500" y="114" text-anchor="middle" dominant-baseline="central">{"__type__":...}  score: 1712346278</text>
+  <rect x="380" y="134" width="240" height="28" rx="4" fill="#F5C4B3" stroke="#D85A30" stroke-width="0.5"/>
+  <text font-size="11" fill="#712B13" x="500" y="148" text-anchor="middle" dominant-baseline="central">{"__type__":...}  score: 1712346310</text>
+  <text font-size="11" fill="#993C1D" x="500" y="172" text-anchor="middle" dominant-baseline="central">score = unix deadline · reaper checks score &lt; now</text>
+
+  <!-- Retry hash -->
+  <rect x="40" y="220" width="280" height="130" rx="10" fill="#EEEDFE" stroke="#7F77DD" stroke-width="0.5"/>
+  <text font-size="14" font-weight="500" fill="#3C3489" x="60" y="246" dominant-baseline="central">Retry hash</text>
+  <text font-size="12" fill="#534AB7" x="60" y="266" dominant-baseline="central">myqueue:retry_counts</text>
+  <rect x="60" y="280" width="240" height="28" rx="4" fill="#CECBF6" stroke="#7F77DD" stroke-width="0.5"/>
+  <text font-size="12" fill="#3C3489" x="180" y="294" text-anchor="middle" dominant-baseline="central">abc-123  →  2</text>
+  <rect x="60" y="314" width="240" height="28" rx="4" fill="#CECBF6" stroke="#7F77DD" stroke-width="0.5"/>
+  <text font-size="12" fill="#3C3489" x="180" y="328" text-anchor="middle" dominant-baseline="central">def-456  →  1</text>
+
+  <!-- DLQ -->
+  <rect x="360" y="220" width="280" height="130" rx="10" fill="#FAEEDA" stroke="#BA7517" stroke-width="0.5"/>
+  <text font-size="14" font-weight="500" fill="#633806" x="380" y="246" dominant-baseline="central">Dead-letter queue</text>
+  <text font-size="12" fill="#854F0B" x="380" y="266" dominant-baseline="central">myqueue:dlq</text>
+  <rect x="380" y="280" width="240" height="28" rx="4" fill="#FAC775" stroke="#BA7517" stroke-width="0.5"/>
+  <text font-size="11" fill="#633806" x="500" y="294" text-anchor="middle" dominant-baseline="central">{"__type__":"DocumentMessage",...}</text>
+  <text font-size="11" fill="#854F0B" x="500" y="334" text-anchor="middle" dominant-baseline="central">failed &gt; max_retries times</text>
+
+  <!-- Footer -->
+  <text font-size="11" fill="#888780" x="340" y="378" text-anchor="middle" dominant-baseline="central">all four keys share the same queue_name prefix</text>
+</svg>

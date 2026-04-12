@@ -11,6 +11,18 @@ _DESTINATION_OBJECT = {
     "required": ["type"],
 }
 
+_QUEUE_OBJECT = {
+    "type": "object",
+    "properties": {
+        "backend": {
+            "type": "string",
+            "enum": ["redis", "sqs", "rabbitmq", "pubsub", "servicebus", "kafka"],
+        },
+        "params": {"type": "object"},
+    },
+    "required": ["backend"],
+}
+
 CONFIG_SCHEMA: dict = {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
@@ -72,6 +84,17 @@ CONFIG_SCHEMA: dict = {
                 "adaptive_batching": {"type": "object"},
                 "webhook": {"type": "object"},
             },
+        },
+        "distributed": {
+            "type": "object",
+            "properties": {
+                "document_queue": _QUEUE_OBJECT,
+                "chunk_queue": _QUEUE_OBJECT,
+                "n_extraction_workers": {"type": "integer", "minimum": 1},
+                "n_embedding_workers": {"type": "integer", "minimum": 1},
+                "poll_timeout": {"type": "number", "minimum": 0},
+            },
+            "required": ["document_queue", "chunk_queue"],
         },
         "extends": {"type": "string"},
     },

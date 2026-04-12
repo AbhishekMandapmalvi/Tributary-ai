@@ -182,3 +182,83 @@ class TestSchemaItself:
     def test_schema_is_valid_json_schema(self):
         from jsonschema import Draft7Validator
         Draft7Validator.check_schema(CONFIG_SCHEMA)
+
+
+# --- FR-SCHEMA: distributed queue section ---------------------------------------
+
+def _distributed_config(**overrides):
+    distributed = {
+        "document_queue": {"backend": "redis", "params": {"queue_name": "docs"}},
+        "chunk_queue": {"backend": "redis", "params": {"queue_name": "chunks"}},
+    }
+    distributed.update(overrides)
+    return _minimal_config(distributed=distributed)
+
+
+class TestDistributedSection:
+    def test_minimal_distributed_config_valid(self):
+        assert validate_schema(_distributed_config()) == []
+
+    def test_distributed_with_worker_counts(self):
+        cfg = _minimal_config(distributed={
+            "document_queue": {"backend": "redis"},
+            "chunk_queue": {"backend": "redis"},
+            "n_extraction_workers": 4,
+            "n_embedding_workers": 2,
+            "poll_timeout": 1.5,
+        })
+        assert validate_schema(cfg) == []
+
+    @pytest.mark.parametrize("backend", [
+        "redis", "sqs", "rabbitmq", "pubsub", "servicebus", "kafka",
+    ])
+    def test_all_backends_accepted(self, backend):
+        cfg = _minimal_config(distributed={
+            "document_queue": {"backend": backend},
+            "chunk_queue": {"backend": backend},
+        })
+        assert validate_schema(cfg) == []
+
+    def test_unknown_backend_rejected(self):
+        cfg = _minimal_config(distributed={
+            "document_queue": {"backend": "nonexistent"},
+            "chunk_queue": {"backend": "redis"},
+        })
+        errors = validate_schema(cfg)
+        assert len(errors) >= 1
+        assert any("nonexistent" in e or "enum" in e.lower() for e in errors)
+
+    def test_missing_document_queue(self):
+        cfg = _minimal_config(distributed={
+            "chunk_queue": {"backend": "redis"},
+        })
+        errors = validate_schema(cfg)
+        assert any("document_queue" in e for e in errors)
+
+    def test_missing_chunk_queue(self):
+        cfg = _minimal_config(distributed={
+            "document_queue": {"backend": "redis"},
+        })
+        errors = validate_schema(cfg)
+        assert any("chunk_queue" in e for e in errors)
+
+    def test_missing_backend_in_queue(self):
+        cfg = _minimal_config(distributed={
+            "document_queue": {"params": {}},
+            "chunk_queue": {"backend": "redis"},
+        })
+        errors = validate_schema(cfg)
+        assert any("backend" in e for e in errors)
+
+    def test_n_workers_must_be_positive(self):
+        cfg = _minimal_config(distributed={
+            "document_queue": {"backend": "redis"},
+            "chunk_queue": {"backend": "redis"},
+            "n_extraction_workers": 0,
+        })
+        errors = validate_schema(cfg)
+        assert len(errors) >= 1
+
+    def test_distributed_is_optional(self):
+        # A config without a distributed section must still be valid
+        assert validate_schema(_minimal_config()) == []
