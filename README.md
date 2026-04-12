@@ -1,7 +1,7 @@
 # Tributary
 
 [![PyPI](https://img.shields.io/pypi/v/tributary-ai)](https://pypi.org/project/tributary-ai/)
-[![Tests](https://img.shields.io/badge/tests-416%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-437%20passing-brightgreen)]()
 [![Python](https://img.shields.io/pypi/pyversions/tributary-ai)](https://pypi.org/project/tributary-ai/)
 [![License](https://img.shields.io/github/license/AbhishekMandapmalvi/Tributary)](LICENSE)
 
@@ -608,7 +608,7 @@ Deep merge: nested dicts merge recursively, scalars and lists are replaced. Supp
 ## Tests
 
 ```bash
-pytest -v  # 416 tests passing
+pytest -v  # 437 tests passing
 ```
 
 ---
@@ -618,7 +618,7 @@ pytest -v  # 416 tests passing
 | Pattern | Where | Why |
 |---------|-------|-----|
 | **Strategy** | Chunkers, Embedders, Destinations | Swap algorithms without changing the pipeline |
-| **Factory + Registry** | `get_source()`, `get_chunker()`, `get_embedder()`, `get_destination()`, `get_extractor_for_extension()` | Create components by name string |
+| **Factory + Registry** | `get_source()`, `get_chunker()`, `get_embedder()`, `get_destination()`, `get_extractor_for_extension()`, `get_queue()` | Create components by name string |
 | **Producer-Consumer** | Pipeline orchestrator | Decouple document fetching from processing |
 | **Abstract Base Class** | `BaseSource`, `BaseExtractor`, `BaseChunker`, `BaseEmbedder`, `BaseDestination` | Enforce interface contracts |
 | **Template Method** | `BaseEmbedder.embed_chunks()` wraps `embed()` | Base class handles caching + metadata, subclass handles vectors |
