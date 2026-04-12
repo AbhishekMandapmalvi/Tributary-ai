@@ -1,0 +1,91 @@
+name: Release
+
+# Runs only on push to master (i.e., after a PR merges).
+# Pipeline:
+#   1. Test on master HEAD (safety re-run after squash-merge)
+#   2. Analyze commits since last tag → decide next version
+#   3. Bump pyproject.toml, update CHANGELOG.md, commit, tag, push
+#   4. Build wheel/sdist
+#   5. Publish to PyPI via trusted publisher
+#   6. Create a GitHub Release from the new tag with changelog excerpt
+on:
+  push:
+    branches: [master]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # semantic-release needs full history
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Download NLTK data
+        run: uv run python -c "import nltk; nltk.download('punkt_tab')"
+
+      - name: Run tests
+        run: uv run pytest -v
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: pypi
+
+    permissions:
+      contents: write      # Push version bump commit + tag
+      id-token: write      # PyPI trusted publishing
+      pull-requests: read  # Read PR labels for version overrides
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Run python-semantic-release
+        id: semrel
+        uses: python-semantic-release/python-semantic-release@v9
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Lets semantic-release push the bump commit + tag back to master.
+          # The action handles signing with the default GITHUB_TOKEN.
+          git_committer_name: "github-actions[bot]"
+          git_committer_email: "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Build distribution
+        if: steps.semrel.outputs.released == 'true'
+        run: uv build
+
+      - name: Publish to PyPI
+        if: steps.semrel.outputs.released == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Create GitHub Release
+        if: steps.semrel.outputs.released == 'true'
+        uses: python-semantic-release/publish-action@v9
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.semrel.outputs.tag }}

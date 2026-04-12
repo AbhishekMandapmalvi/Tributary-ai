@@ -1,7 +1,7 @@
 # Tributary
 
 [![PyPI](https://img.shields.io/pypi/v/tributary-ai)](https://pypi.org/project/tributary-ai/)
-[![Tests](https://img.shields.io/badge/tests-437%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-450%20passing-brightgreen)]()
 [![Python](https://img.shields.io/pypi/pyversions/tributary-ai)](https://pypi.org/project/tributary-ai/)
 [![License](https://img.shields.io/github/license/AbhishekMandapmalvi/Tributary)](LICENSE)
 
@@ -29,13 +29,23 @@ The single-process mode is the `Pipeline` class and is what most users want. The
 ## Installation
 
 ```bash
-pip install tributary-ai                # Core only (~16 MB)
-pip install tributary-ai[openai]        # + OpenAI embedder
-pip install tributary-ai[pdf,s3]        # + PDF extraction + S3 source
-pip install tributary-ai[all]           # Everything
+pip install tributary-ai                    # Core only (~16 MB)
+pip install tributary-ai[openai]             # + OpenAI embedder
+pip install tributary-ai[pdf,s3]             # + PDF extraction + S3 source
+pip install tributary-ai[redis]              # + Redis queue backend (distributed mode)
+pip install tributary-ai[distributed]        # + All 6 queue backends
+pip install tributary-ai[all]                # Everything
 ```
 
-Optional dependency groups: `pdf`, `s3`, `gcs`, `azure`, `web`, `sentence`, `token`, `openai`, `cohere`, `pinecone`, `qdrant`, `chroma`, `pgvector`, `dashboard`, `all`.
+Optional dependency groups:
+- **Sources**: `s3`, `gcs`, `azure`, `web`
+- **Extractors**: `pdf`
+- **Chunkers**: `sentence`, `token`
+- **Embedders**: `openai`, `cohere`
+- **Destinations**: `pinecone`, `qdrant`, `chroma`, `pgvector`
+- **Queue backends** (for distributed mode): `redis`, `sqs`, `rabbitmq`, `pubsub`, `servicebus`, `kafka`, or `distributed` (all six)
+- **Dashboard**: `dashboard`
+- **Everything**: `all`
 
 Import stays `import tributary` regardless of which extras you install.
 
@@ -638,7 +648,7 @@ Deep merge: nested dicts merge recursively, scalars and lists are replaced. Supp
 ## Tests
 
 ```bash
-pytest -v  # 437 tests passing
+pytest -v  # 450 tests passing
 ```
 
 ---

@@ -1,6 +1,6 @@
 [project]
 name = "tributary-ai"
-version = "0.1.2"
+version = "0.2.0"
 description = "A lightweight, high-concurrency data ingestion and chunking pipeline for RAG systems."
 readme = "README.md"
 authors = [
@@ -49,9 +49,20 @@ pgvector = ["asyncpg>=0.31.0"]
 # Dashboard
 dashboard = ["fastapi>=0.135.3", "uvicorn>=0.44.0", "websockets>=16.0"]
 
+# Distributed queue backends
+redis = ["redis>=5.2.0"]
+sqs = ["aioboto3>=13.2.0"]
+rabbitmq = ["aio-pika>=9.4.0"]
+pubsub = ["gcloud-aio-pubsub>=6.0.0"]
+servicebus = ["azure-servicebus>=7.12.0"]
+kafka = ["aiokafka>=0.12.0"]
+distributed = [
+    "tributary-ai[redis,sqs,rabbitmq,pubsub,servicebus,kafka]",
+]
+
 # Everything
 all = [
-    "tributary-ai[s3,gcs,azure,web,pdf,sentence,token,openai,cohere,pinecone,qdrant,chroma,pgvector,dashboard]",
+    "tributary-ai[s3,gcs,azure,web,pdf,sentence,token,openai,cohere,pinecone,qdrant,chroma,pgvector,dashboard,distributed]",
 ]
 
 [project.scripts]
@@ -79,3 +90,53 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+
+# ---------------------------------------------------------------------------
+# python-semantic-release
+#
+# Runs on every push to master via .github/workflows/release.yml.
+# Analyzes commits since the last tag and decides the next version:
+#   feat:       → minor bump
+#   fix:        → patch bump
+#   perf:       → patch bump
+#   refactor:   → no release (skipped)
+#   docs:       → no release
+#   test:       → no release
+#   chore:      → no release
+#   BREAKING CHANGE: (in body/footer) → major bump
+#
+# PR label overrides (semantic-release reads the squash-merge commit body,
+# so add one of these lines to the PR description or commit footer to
+# force a specific bump type):
+#   Release-As: major
+#   Release-As: minor
+#   Release-As: patch
+# ---------------------------------------------------------------------------
+[tool.semantic_release]
+version_variables = ["src/tributary/__init__.py:__version__"]
+version_toml = ["pyproject.toml:project.version"]
+branch = "master"
+changelog_file = "CHANGELOG.md"
+build_command = "uv build"
+commit_message = "chore(release): v{version} [skip ci]"
+commit_parser = "angular"
+major_on_zero = false  # 0.x.y → 0.(x+1).0 on feat, not 1.0.0
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = [
+    "feat", "fix", "perf", "refactor",
+    "docs", "test", "chore", "ci", "build", "style", "security",
+]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf"]
+
+[tool.semantic_release.changelog]
+template_dir = "templates"
+exclude_commit_patterns = [
+    "^chore\\(release\\):",
+    "^Merge ",
+]
+
+[tool.semantic_release.branches.main]
+match = "master"
+prerelease = false
