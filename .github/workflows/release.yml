@@ -4,10 +4,15 @@ name: Release
 # Pipeline:
 #   1. Test on master HEAD (safety re-run after squash-merge)
 #   2. Analyze commits since last tag → decide next version
-#   3. Bump pyproject.toml, update CHANGELOG.md, commit, tag, push
-#   4. Build wheel/sdist
+#   3. Bump pyproject.toml + src/tributary/__init__.py, update CHANGELOG.md,
+#      commit, tag, push
+#   4. Build wheel/sdist with `uv build`
 #   5. Publish to PyPI via trusted publisher
 #   6. Create a GitHub Release from the new tag with changelog excerpt
+#
+# semantic-release is installed into the host runner (not used as a Docker
+# action) so it can see tags fetched by actions/checkout and invoke `uv`
+# for the build command.
 on:
   push:
     branches: [master]
@@ -22,7 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # semantic-release needs full history
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -55,6 +61,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python 3.12
@@ -65,27 +72,61 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v4
 
-      - name: Run python-semantic-release
-        id: semrel
-        uses: python-semantic-release/python-semantic-release@v9
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          # Lets semantic-release push the bump commit + tag back to master.
-          # The action handles signing with the default GITHUB_TOKEN.
-          git_committer_name: "github-actions[bot]"
-          git_committer_email: "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Install python-semantic-release
+        run: uv tool install "python-semantic-release>=9.0"
 
-      - name: Build distribution
-        if: steps.semrel.outputs.released == 'true'
-        run: uv build
+      - name: Verify tags are visible
+        run: |
+          echo "Tags fetched:"
+          git tag -l
+          echo ""
+          echo "Most recent tag:"
+          git describe --tags --abbrev=0 || echo "no tags"
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run semantic-release version
+        id: semrel
+        run: |
+          # Capture the current version before running
+          CURRENT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+          echo "current_tag=$CURRENT_TAG" >> "$GITHUB_OUTPUT"
+
+          # Run version bump + changelog + commit + tag + push
+          # --no-vcs-release so we control the PyPI upload step ourselves
+          uv tool run --from python-semantic-release semantic-release \
+            version \
+            --push \
+            --no-vcs-release
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+
+          # Did semantic-release actually create a new tag?
+          NEW_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+          echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+          if [ "$NEW_TAG" != "$CURRENT_TAG" ]; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "Released: $NEW_TAG"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            echo "No release warranted (no version bump from semantic-release)."
+          fi
 
       - name: Publish to PyPI
         if: steps.semrel.outputs.released == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
 
       - name: Create GitHub Release
         if: steps.semrel.outputs.released == 'true'
-        uses: python-semantic-release/publish-action@v9
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ steps.semrel.outputs.tag }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.semrel.outputs.new_tag }}"
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes-from-tag \
+            dist/*
